@@ -224,6 +224,16 @@ describe("Copilot setup questions", () => {
     expect(COPILOT_SETUP_RULE).toContain("`choices` list");
   });
 
+  // A model that skips copilot.md still reads the stamped pointer and the
+  // no-sheet context, so the no-guess rule lives in both.
+  test("the pointer and the no-sheet context forbid picking models for the user", () => {
+    const noSheet = readFileSync(join(repoRoot, "plugins/pstack/hooks/session-start-copilot-nosheet.md"), "utf8");
+    expect(skill).toContain(COPILOT_SETUP_RULE);
+    expect(COPILOT_SETUP_RULE).toContain("never pick a model the user has not chosen");
+    expect(COPILOT_SETUP_RULE).toContain("When `ask_user` is not available and the request leaves a model question open, write no sheet");
+    expect(noSheet).toContain("It never picks a model the user has not chosen, so when `ask_user` is not available it writes no sheet");
+  });
+
   test("every sheet role is written by exactly one tier or panel question", () => {
     const written = [...sequence.matchAll(/\bwrites ([^.]*)\./g)].flatMap((m) => [...m[1].matchAll(/`([^`]+)`/g)].map((r) => r[1]));
     expect(roles.length).toBe(17);

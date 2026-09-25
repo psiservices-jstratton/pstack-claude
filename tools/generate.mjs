@@ -408,7 +408,9 @@ export const COPILOT_SHEET_RULE =
 // upstream SKILL.md keeps only this stamped pointer.
 export const COPILOT_SETUP_RULE =
   "Detect models and ask the user as [the Copilot setup questions](copilot.md) describe, in place of the questions in steps 1, 3, and 4: " +
-  "one `ask_user` question per tier and panel slot, each with a `choices` list.";
+  "one `ask_user` question per tier and panel slot, each with a `choices` list. pstack ships no Copilot model defaults, so never pick a model " +
+  "the user has not chosen, and never write the Claude Code names in [Models](#models) or step 6's shape into a Copilot sheet. " +
+  "When `ask_user` is not available and the request leaves a model question open, write no sheet and tell the user to rerun `setup-pstack` interactively.";
 const copilotPointer = (skill) => {
   if (COPILOT_SHEET_SKILLS.includes(skill)) return `${COPILOT_POINTER} ${COPILOT_SHEET_RULE}`;
   if (skill === "setup-pstack") return `${COPILOT_POINTER} ${COPILOT_SETUP_RULE}`;

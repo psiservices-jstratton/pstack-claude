@@ -7,7 +7,7 @@ description: Configure which models pstack uses per role. Detects available mode
 
 On Codex, read the [platform mapping](../poteto-mode/references/codex-tools.md), including its per-skill notes, before following this skill.
 
-On GitHub Copilot, read the [platform mapping](../poteto-mode/references/copilot-tools.md), including its per-skill notes, before following this skill. Detect models and ask the user as [the Copilot setup questions](copilot.md) describe, in place of the questions in steps 1, 3, and 4: one `ask_user` question per tier and panel slot, each with a `choices` list.
+On GitHub Copilot, read the [platform mapping](../poteto-mode/references/copilot-tools.md), including its per-skill notes, before following this skill. Detect models and ask the user as [the Copilot setup questions](copilot.md) describe, in place of the questions in steps 1, 3, and 4: one `ask_user` question per tier and panel slot, each with a `choices` list. pstack ships no Copilot model defaults, so never pick a model the user has not chosen, and never write the Claude Code names in [Models](#models) or step 6's shape into a Copilot sheet. When `ask_user` is not available and the request leaves a model question open, write no sheet and tell the user to rerun `setup-pstack` interactively.
 
 On another runtime, read [Other runtimes](#other-runtimes) below for where the sheet lives and how it loads; the steps are the same.
 
