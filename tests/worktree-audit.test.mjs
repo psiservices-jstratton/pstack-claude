@@ -294,3 +294,27 @@ test('keeps the recent-chat hold with an isolated transcript fixture', () => {
   assert.equal(rowFor(output, candidate)[7], 'verify-recent-chat');
   assert.equal(rowFor(output, prefix)[7], 'safe');
 });
+
+test('reads PSTACK_TRANSCRIPTS when no transcripts path is passed, including Copilot session state', () => {
+  const fixture = createRepo();
+  const candidate = addWorktree(fixture, 'candidate', 'candidate');
+  const session = join(fixture.transcripts, 'session-1');
+  mkdirSync(session);
+  const start = { type: 'session.start', data: { context: { cwd: candidate } } };
+  writeFileSync(join(session, 'events.jsonl'), `${JSON.stringify(start)}\n`);
+  const output = execFileSync('/bin/bash', [auditScript, fixture.repo], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PATH: `${fixture.bin}:${process.env.PATH}`,
+      PSTACK_TRANSCRIPTS: fixture.transcripts,
+      AUDIT_GH_RESPONSE: '[]',
+      AUDIT_FAIL_STATUS_PATH: '',
+      AUDIT_FAIL_FETCH: '0',
+      AUDIT_FAIL_GH: '0',
+      AUDIT_FAIL_RG: '0',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  assert.equal(rowFor(output, candidate)[7], 'verify-recent-chat');
+});

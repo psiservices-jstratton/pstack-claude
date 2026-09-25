@@ -7,7 +7,9 @@
 // three layouts under one per-project directory: flat <id>.jsonl, nested
 // <id>/<id>.jsonl, and subagent <id>/subagents/<child>.jsonl. Each candidate is
 // streamed line by line and abandoned at its first `user` record; the first
-// line is session metadata and files run to megabytes.
+// line is session metadata and files run to megabytes. GitHub Copilot's
+// session-state/<id>/events.jsonl is the nested layout with `user.message`
+// records, so pass ${COPILOT_HOME:-~/.copilot}/session-state there.
 import { createReadStream, readdirSync, realpathSync, statSync } from "node:fs";
 import { join } from "node:path";
 import process from "node:process";
@@ -53,6 +55,7 @@ export async function openingPrompt(path) {
         continue;
       }
       if (record?.type === "user") return text(record.message?.content);
+      if (record?.type === "user.message") return text(record.data?.content);
     }
   } finally {
     lines.close();

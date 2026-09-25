@@ -5,6 +5,8 @@
 # deletes anything; deletion stays a human-gated step in the playbook.
 #
 # Usage: worktree-audit.sh [repo-path] [transcripts-path]
+#   transcripts-path defaults to $PSTACK_TRANSCRIPTS, then ~/.claude/projects.
+#   On GitHub Copilot pass ${COPILOT_HOME:-~/.copilot}/session-state.
 set -u
 
 repo="${1:-$(git rev-parse --show-toplevel 2>/dev/null)}"
@@ -114,7 +116,8 @@ fi
 # Transcripts: ~/.claude/projects/<encoded-cwd>/<uuid>.jsonl, where <encoded-cwd> is a
 # session's cwd with every "/" turned into "-". A session run inside a worktree lives
 # under that worktree's own directory, so scan the whole projects tree, not one repo's.
-transcripts="${2:-$HOME/.claude/projects}"
+# Copilot's session-state/<id>/events.jsonl records the cwd the same way.
+transcripts="${2:-${PSTACK_TRANSCRIPTS:-$HOME/.claude/projects}}"
 if [ ! -d "$transcripts" ]; then
     discovery_known=no
     echo "warn: $transcripts not found; LAST_CHAT column will be empty" >&2

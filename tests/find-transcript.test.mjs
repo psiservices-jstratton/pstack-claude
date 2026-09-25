@@ -78,6 +78,17 @@ describe("find-transcript", () => {
     expect(await findTranscript(dir, "nothing matches this")).toBeNull();
   });
 
+  test("a GitHub Copilot session-state tree is searched by its user.message records", async () => {
+    const dir = tempDir();
+    const start = JSON.stringify({ type: "session.start", data: { sessionId: "s1", context: { cwd: "/work/app" } } });
+    const hook = JSON.stringify({ type: "hook.end", data: { hookType: "sessionStart" } });
+    const copilotUser = (content) => JSON.stringify({ type: "user.message", data: { content } });
+    transcript(dir, "s0/events.jsonl", [start, copilotUser("unrelated work")], 100);
+    const match = transcript(dir, "s1/events.jsonl", [start, hook, copilotUser("audit the flaky upload retry")], 200);
+    expect(await openingPrompt(match)).toBe("audit the flaky upload retry");
+    expect(await findTranscript(dir, "flaky upload")).toBe(match);
+  });
+
   test("a truncated trailing line does not abort the scan", async () => {
     const dir = tempDir();
     const live = join(dir, "live.jsonl");
