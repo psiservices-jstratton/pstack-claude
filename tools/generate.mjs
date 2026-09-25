@@ -22,7 +22,9 @@
 //     -> the "## Model names" section of poteto-mode/references/codex-tools.md
 //        and of poteto-mode/references/copilot-tools.md (Copilot ships no slugs)
 //   hooks/session-start-context.md + hooks/session-start-copilot.md
-//     -> hooks/session-start-context.json, the Copilot hook's JSON output
+//     + hooks/session-start-copilot-sheet.md
+//     -> hooks/session-start-context.json, the Copilot hook's JSON output, whose
+//        marker the hook replaces with the sheet's role lines
 //   ... + hooks/session-start-copilot-nosheet.md
 //     -> hooks/session-start-context-nosheet.json, its output with no Copilot sheet
 //   COPILOT_POINTER_SKILLS -> a GitHub Copilot pointer after each Codex pointer
@@ -397,9 +399,11 @@ export const COPILOT_POINTER_SKILLS = [
 // their pointer also carries the no-sheet rule where the model reads it first.
 export const COPILOT_SHEET_SKILLS = ["architect", "arena", "how", "interrogate", "reflect", "swarm", "why"];
 export const COPILOT_SHEET_RULE =
-  'Before anything else, print the sheet\'s absolute path with `bash` (`echo "${COPILOT_HOME:-$HOME/.copilot}/pstack-models.md"`; ' +
-  "file tools expand neither `~` nor variables) and `view` exactly that path; if it does not exist, stop, " +
-  "load the `setup-pstack` skill with the `skill` tool and finish it, then follow this skill with the models it saved.";
+  "Before anything else, find the role models. If the context says this Copilot home has no pstack model sheet yet, stop, " +
+  "load the `setup-pstack` skill with the `skill` tool and finish it, then follow this skill with the models it just wrote. " +
+  "Otherwise take them from the saved pstack model choices the plugin hook put in context. Only when neither is in context " +
+  '(a skills-only install has no hook), print the sheet\'s absolute path with `bash` (`echo "${COPILOT_HOME:-$HOME/.copilot}/pstack-models.md"`; ' +
+  "file tools expand neither `~` nor variables) and `view` exactly that path; if it does not exist, run `setup-pstack` the same way.";
 const copilotPointer = (skill) =>
   COPILOT_SHEET_SKILLS.includes(skill) ? `${COPILOT_POINTER} ${COPILOT_SHEET_RULE}` : COPILOT_POINTER;
 const POTETO_ADAPTATION = "These skills use Claude Code tool names";
@@ -608,15 +612,18 @@ export function copilotModelNamesSection(models) {
     "Skills name Claude Code model aliases in their Models sections. Those aliases are not Copilot model IDs, " +
     "and the Copilot build ships no default model IDs: the models an account can reach depend on its plan " +
     "and policy, so the user picks them once.\n\n" +
-    "- The model sheet is `${COPILOT_HOME:-~/.copilot}/pstack-models.md`. Read it with `view` before any " +
-    "dispatch that needs a role model. A role line there names the model for that role.\n" +
-    "- `view`, `create`, and `edit` take literal paths and expand neither `~` nor `$COPILOT_HOME`. Print the " +
+    "- The model sheet is `${COPILOT_HOME:-~/.copilot}/pstack-models.md`. It sits outside the workspace, so reading it " +
+    "asks for path access. When it exists, the plugin's SessionStart hook reads it and adds its role lines to the " +
+    "session context as the user's saved pstack model choices. Take role models from that block and do not `view` the " +
+    "sheet. A role line names the model for that role.\n" +
+    "- Read the sheet only when that block is missing, as in a skills-only install with no hook. `view`, `create`, and " +
+    "`edit` take literal paths and expand neither `~` nor `$COPILOT_HOME`, so print the " +
     "sheet's absolute path with `bash` first (" + "`echo \"${COPILOT_HOME:-$HOME/.copilot}/pstack-models.md\"`" + ") and read " +
     "and write exactly that path; do not append `.copilot` or any other segment to it. A session with its own " +
     "`COPILOT_HOME` then never touches `~/.copilot`.\n" +
     `- No sheet: before a skill that needs a role model (${skills.map(code).join(", ")}), run ` +
-    "`setup-pstack` first. After that, " +
-    "reuse the saved choices; do not ask again on later runs.\n" +
+    "`setup-pstack` first. In that same session, use the values it just wrote; later sessions get them from the " +
+    "hook. Do not ask again on later runs.\n" +
     "- A role line in the sheet is the user's explicit model instruction, so pass it as the `task` tool's " +
     "`model` parameter. A role with no line, or `inherit-parent`/`auto`, omits `model`.\n" +
     `- Roles that default to the strongest model (${strongest.map((r) => code(r.role)).join(", ")}): ` +
@@ -653,6 +660,9 @@ export function validateCopilotModels(models) {
 // Copilot parses a sessionStart hook's stdout as one JSON object, so the
 // hook prints a stamped JSON copy of the mandate: the Claude/Codex text with
 // the Copilot addendum inside the closing tag. No escaping happens at runtime.
+// The hook swaps this marker for the sheet's role lines at session start.
+export const SAVED_CHOICES_MARKER = "@PSTACK_SAVED_MODEL_CHOICES@";
+
 export function copilotSessionContext(mandate, addendum) {
   const close = "</EXTREMELY_IMPORTANT>";
   if (mandate.split(close).length !== 2) {
@@ -808,11 +818,14 @@ function main() {
   const hooksDir = join(pluginRoot, "hooks");
   const hookText = (name) => readFileSync(join(hooksDir, name), "utf8");
   const addendum = hookText("session-start-copilot.md");
-  for (const [out, extra] of [
-    ["session-start-context.json", ""],
-    ["session-start-context-nosheet.json", hookText("session-start-copilot-nosheet.md")],
+  for (const [out, extra, markers] of [
+    ["session-start-context.json", hookText("session-start-copilot-sheet.md"), 1],
+    ["session-start-context-nosheet.json", hookText("session-start-copilot-nosheet.md"), 0],
   ]) {
-    const context = copilotSessionContext(hookText("session-start-context.md"), extra ? `${addendum.trim()}\n\n${extra}` : addendum);
+    const context = copilotSessionContext(hookText("session-start-context.md"), `${addendum.trim()}\n\n${extra}`);
+    if (context.split(SAVED_CHOICES_MARKER).length - 1 !== markers) {
+      throw new Error(`hooks/${out} must contain ${SAVED_CHOICES_MARKER} exactly ${markers} time(s)`);
+    }
     if (!stampFile(join(hooksDir, out), context, `hooks/${out}`)) console.log(`ok: hooks/${out} current`);
   }
   validateHooks(readFileSync(join(pluginRoot, "hooks/hooks.json"), "utf8"), {

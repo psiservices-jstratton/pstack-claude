@@ -17,6 +17,7 @@ import {
   deriveSkill,
   loadModels,
   pointerRegions,
+  SAVED_CHOICES_MARKER,
   validateCopilotModels,
 } from "../tools/generate.mjs";
 import { markdownFiles } from "../tools/validate-skills.mjs";
@@ -70,7 +71,10 @@ describe("copilot-tools.md coverage", () => {
     expect(names).toContain("ships no default model IDs");
     expect(names).toContain("`${COPILOT_HOME:-~/.copilot}/pstack-models.md`");
     expect(names).toContain("run `setup-pstack` first");
-    expect(names).toContain("do not ask again");
+    expect(names).toContain("Do not ask again");
+    expect(names).toContain("saved pstack model choices");
+    expect(names).toContain("do not `view` the sheet");
+    expect(names).toContain("use the values it just wrote");
     expect(names).toContain("`model` parameter");
     expect(names).toContain("distinct vendors");
     for (const role of models.roles.filter((r) => r.tier === "strongest")) expect(names).toContain(`\`${role.role}\``);
@@ -172,7 +176,10 @@ describe("Copilot session context", () => {
 
   test("the committed JSON is the stamp of the mandate and the addendum", () => {
     const committed = readFileSync(join(repoRoot, "plugins/pstack/hooks/session-start-context.json"), "utf8");
-    expect(copilotSessionContext(mandate, addendum)).toBe(committed);
+    const sheet = readFileSync(join(repoRoot, "plugins/pstack/hooks/session-start-copilot-sheet.md"), "utf8");
+    expect(copilotSessionContext(mandate, `${addendum.trim()}\n\n${sheet}`)).toBe(committed);
+    expect(committed.split(SAVED_CHOICES_MARKER)).toHaveLength(2);
+    expect(sheet).toContain("saved pstack model choices");
   });
 
   test("the no-sheet JSON adds only the setup-first paragraph", () => {
@@ -180,6 +187,7 @@ describe("Copilot session context", () => {
     const committed = readFileSync(join(repoRoot, "plugins/pstack/hooks/session-start-context-nosheet.json"), "utf8");
     expect(copilotSessionContext(mandate, `${addendum.trim()}\n\n${noSheet}`)).toBe(committed);
     expect(noSheet).toContain("load `setup-pstack` with the `skill` tool");
+    expect(committed).not.toContain(SAVED_CHOICES_MARKER);
   });
 
   test("the addendum lands inside the one closing tag", () => {
@@ -193,5 +201,8 @@ describe("Copilot session context", () => {
     expect(addendum).toContain("`references/copilot-tools.md`");
     expect(addendum).toContain("`${COPILOT_HOME:-~/.copilot}/pstack-models.md`");
     expect(addendum).toContain("`setup-pstack`");
+    expect(addendum).toContain("saved pstack model choices");
+    expect(addendum).toContain("Do not `view` the sheet");
+    expect(addendum).toContain("use the values it just wrote");
   });
 });

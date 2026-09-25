@@ -1,0 +1,29 @@
+#!/bin/sh
+# GitHub Copilot only: approve `view` of this plugin's own files (playbooks,
+# references, scripts). Copilot's path sandbox covers the workspace, so without
+# this every read of the installed plugin asks for path access, and `-p` runs
+# deny it. Any other call gets no output and takes the normal permission flow.
+# Copilot denies the call when this hook exits non-zero, so every path exits 0.
+[ -n "${COPILOT_PLUGIN_ROOT:-}" ] || exit 0
+input=$(cat) || exit 0
+field() {
+  printf '%s\n' "$input" | sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\\([^\"\\\\]*\\)\".*/\\1/p" | head -n 1
+}
+case "$(field tool_name)$(field toolName)" in
+  Read | view) ;;
+  *) exit 0 ;;
+esac
+path=$(field path)
+case "/$path/" in
+  // | */../* | */./*) exit 0 ;;
+esac
+real=$(cd "$COPILOT_PLUGIN_ROOT" 2>/dev/null && pwd -P) || exit 0
+for root in "${COPILOT_PLUGIN_ROOT%/}" "$real"; do
+  case "$path" in
+    "$root"/*)
+      printf '{"permissionDecision":"allow"}\n'
+      exit 0
+      ;;
+  esac
+done
+exit 0

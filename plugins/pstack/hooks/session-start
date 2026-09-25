@@ -21,4 +21,10 @@ if grep -qs '^session hook: off$' "$sheet"; then
   exit 0
 fi
 
+# The sheet sits outside Copilot's path sandbox, so the hook injects its role
+# lines in place of the stamped marker; the agent never has to read the file.
+if [ "$context" = session-start-context.json ]; then
+  exec env LC_ALL=C PSTACK_SHEET="$sheet" awk -f "$(dirname "$0")/saved-model-choices.awk" "$(dirname "$0")/$context"
+fi
+
 cat "$(dirname "$0")/$context"

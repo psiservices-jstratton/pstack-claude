@@ -7,7 +7,7 @@ description: "Fan out N parallel workers, drain them, and return one report. Use
 
 On Codex, read the [platform mapping](../poteto-mode/references/codex-tools.md), including its per-skill notes, before following this skill.
 
-On GitHub Copilot, read the [platform mapping](../poteto-mode/references/copilot-tools.md), including its per-skill notes, before following this skill. Before anything else, print the sheet's absolute path with `bash` (`echo "${COPILOT_HOME:-$HOME/.copilot}/pstack-models.md"`; file tools expand neither `~` nor variables) and `view` exactly that path; if it does not exist, stop, load the `setup-pstack` skill with the `skill` tool and finish it, then follow this skill with the models it saved.
+On GitHub Copilot, read the [platform mapping](../poteto-mode/references/copilot-tools.md), including its per-skill notes, before following this skill. Before anything else, find the role models. If the context says this Copilot home has no pstack model sheet yet, stop, load the `setup-pstack` skill with the `skill` tool and finish it, then follow this skill with the models it just wrote. Otherwise take them from the saved pstack model choices the plugin hook put in context. Only when neither is in context (a skills-only install has no hook), print the sheet's absolute path with `bash` (`echo "${COPILOT_HOME:-$HOME/.copilot}/pstack-models.md"`; file tools expand neither `~` nor variables) and `view` exactly that path; if it does not exist, run `setup-pstack` the same way.
 
 Fan out N parallel workers. They may cover separate slices, race the same brief, or mix both. The parent waits, aggregates, and returns one report.
 
