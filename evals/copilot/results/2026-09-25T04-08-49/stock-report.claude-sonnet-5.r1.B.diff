@@ -1,0 +1,107 @@
+diff --git a/README.md b/README.md
+index b09e447..78dc8d4 100644
+--- a/README.md
++++ b/README.md
+@@ -5,6 +5,7 @@ Command-line stock reports for the warehouse team.
+ ```shell
+ node src/main.ts report                      # table
+ node src/main.ts report --format json
++node src/main.ts report --format csv          # opens cleanly in Excel
+ node src/main.ts report --warehouse RNO
+ ```
+ 
+diff --git a/src/args.ts b/src/args.ts
+index 5bca167..f418dde 100644
+--- a/src/args.ts
++++ b/src/args.ts
+@@ -1,9 +1,9 @@
+ export type ReportOptions = {
+-  format: "table" | "json";
++  format: "table" | "json" | "csv";
+   warehouse?: string;
+ };
+ 
+-const FORMATS = ["table", "json"] as const;
++const FORMATS = ["table", "json", "csv"] as const;
+ 
+ export function parseReportArgs(args: string[]): ReportOptions {
+   const options: ReportOptions = { format: "table" };
+diff --git a/src/cli.ts b/src/cli.ts
+index 2cdbc5a..dc62fef 100644
+--- a/src/cli.ts
++++ b/src/cli.ts
+@@ -1,4 +1,5 @@
+ import { parseReportArgs } from "./args.ts";
++import { formatCsv } from "./format/csv.ts";
+ import { formatJson } from "./format/json.ts";
+ import { formatTable } from "./format/table.ts";
+ import { type Item, SAMPLE_ITEMS, selectItems } from "./inventory.ts";
+@@ -17,6 +18,8 @@ export function run(argv: string[], deps: Deps = defaultDeps): string {
+   switch (options.format) {
+     case "json":
+       return formatJson(items);
++    case "csv":
++      return formatCsv(items);
+     case "table":
+       return formatTable(items);
+   }
+diff --git a/src/format/csv.ts b/src/format/csv.ts
+new file mode 100644
+index 0000000..443e93f
+--- /dev/null
++++ b/src/format/csv.ts
+@@ -0,0 +1,16 @@
++import type { Item } from "../inventory.ts";
++import { COLUMNS } from "./table.ts";
++
++// RFC 4180: quote a field when it contains the delimiter, a quote, or a line break,
++// doubling any embedded quotes so Excel parses it back to the original value.
++function escapeCsvField(field: string): string {
++  if (/[",\r\n]/.test(field)) {
++    return `"${field.replace(/"/g, '""')}"`;
++  }
++  return field;
++}
++
++export function formatCsv(items: Item[]): string {
++  const rows = [COLUMNS.map((c) => c.header), ...items.map((item) => COLUMNS.map((c) => c.value(item)))];
++  return rows.map((r) => r.map(escapeCsvField).join(",")).join("\r\n");
++}
+diff --git a/src/format/table.ts b/src/format/table.ts
+index 7cee7cf..d0edfc1 100644
+--- a/src/format/table.ts
++++ b/src/format/table.ts
+@@ -1,6 +1,8 @@
+ import type { Item } from "../inventory.ts";
+ 
+-export const COLUMNS: { header: string; value: (item: Item) => string }[] = [
++export type Column = { header: string; value: (item: Item) => string };
++
++export const COLUMNS: Column[] = [
+   { header: "SKU", value: (i) => i.sku },
+   { header: "Name", value: (i) => i.name },
+   { header: "Warehouse", value: (i) => i.warehouse },
+diff --git a/test/cli.test.ts b/test/cli.test.ts
+index a45759e..21ef81d 100644
+--- a/test/cli.test.ts
++++ b/test/cli.test.ts
+@@ -15,6 +15,19 @@ test("json report filters by warehouse", () => {
+   assert.deepEqual(parsed.items.map((i: { sku: string }) => i.sku), ["BK-100", "WP-310"]);
+ });
+ 
++test("csv report matches the table columns and escapes special characters", () => {
++  const out = run(["report", "--format", "csv"], {
++    loadItems: () => [
++      { sku: "A-1", name: 'Widget, "deluxe"\nedition', warehouse: "RNO", qty: 3 },
++      { sku: "B-2", name: "Plain widget", warehouse: "SLC", qty: 5 },
++    ],
++  });
++  const rows = out.split("\r\n");
++  assert.equal(rows[0], "SKU,Name,Warehouse,Qty");
++  assert.equal(rows[1], 'A-1,"Widget, ""deluxe""\nedition",RNO,3');
++  assert.equal(rows[2], "B-2,Plain widget,SLC,5");
++});
++
+ test("unknown formats are rejected", () => {
+   assert.throws(() => run(["report", "--format", "xml"]), /Unknown format: xml/);
+ });

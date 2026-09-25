@@ -1,0 +1,297 @@
+diff --git a/src/clients/payments.ts b/src/clients/payments.ts
+index 09ec57c..9026905 100644
+--- a/src/clients/payments.ts
++++ b/src/clients/payments.ts
+@@ -1,16 +1,17 @@
+ import { type Http, type HttpResponse, PartnerError, type Sleep } from "../http.ts";
++import { requestWithRetry } from "../retry.ts";
+ 
+ export function createPaymentsClient(deps: { http: Http; sleep: Sleep }) {
+   async function send(url: string, body: unknown): Promise<HttpResponse> {
+-    for (let attempt = 1; ; attempt++) {
+-      const res = await deps.http({ method: "POST", url, body });
+-      const retryable = res.status >= 500 || res.status === 429;
+-      if (!retryable) return res;
+-      if (attempt === 5) throw new PartnerError("payments", res.status);
+-      const retryAfter = Number(res.headers["retry-after"]);
+-      const delay = res.status === 429 && retryAfter > 0 ? retryAfter * 1000 : 200 * 2 ** (attempt - 1);
+-      await deps.sleep(delay);
+-    }
++    return requestWithRetry(deps, () => deps.http({ method: "POST", url, body }), {
++      partner: "payments",
++      maxAttempts: 5,
++      isRetryableStatus: (status) => status >= 500 || status === 429,
++      delayMs: (failedAttempt, lastResponse) => {
++        const retryAfter = Number(lastResponse.headers["retry-after"]);
++        return lastResponse.status === 429 && retryAfter > 0 ? retryAfter * 1000 : 200 * 2 ** (failedAttempt - 1);
++      },
++    });
+   }
+ 
+   return {
+diff --git a/src/clients/shipping.ts b/src/clients/shipping.ts
+index 3b813f2..95e52c4 100644
+--- a/src/clients/shipping.ts
++++ b/src/clients/shipping.ts
+@@ -1,17 +1,16 @@
+ import { type Http, type HttpResponse, PartnerError, type Sleep } from "../http.ts";
++import { requestWithRetry } from "../retry.ts";
+ 
+ export type Parcel = { weightGrams: number; toZip: string };
+ 
+ export function createShippingClient(deps: { http: Http; sleep: Sleep }) {
+   async function send(url: string, body: unknown): Promise<HttpResponse> {
+-    let attempt = 0;
+-    while (true) {
+-      const res = await deps.http({ method: "POST", url, body });
+-      if (res.status < 500) return res;
+-      attempt++;
+-      if (attempt >= 3) throw new PartnerError("shipping", res.status);
+-      await deps.sleep(100 * 2 ** (attempt - 1));
+-    }
++    return requestWithRetry(deps, () => deps.http({ method: "POST", url, body }), {
++      partner: "shipping",
++      maxAttempts: 3,
++      isRetryableStatus: (status) => status >= 500,
++      delayMs: (failedAttempt) => 100 * 2 ** (failedAttempt - 1),
++    });
+   }
+ 
+   return {
+diff --git a/src/clients/tax.ts b/src/clients/tax.ts
+index 10145fe..b95cc62 100644
+--- a/src/clients/tax.ts
++++ b/src/clients/tax.ts
+@@ -1,20 +1,15 @@
+ import { type Http, type HttpResponse, PartnerError, type Sleep } from "../http.ts";
++import { requestWithRetry } from "../retry.ts";
+ 
+ export function createTaxClient(deps: { http: Http; sleep: Sleep }) {
+   async function get(url: string): Promise<HttpResponse> {
+-    let lastError: unknown;
+-    for (let attempt = 0; attempt < 3; attempt++) {
+-      if (attempt > 0) await deps.sleep(50);
+-      try {
+-        const res = await deps.http({ method: "GET", url });
+-        if (res.status !== 503) return res;
+-        lastError = new PartnerError("tax", res.status);
+-      } catch (error) {
+-        if (error instanceof PartnerError) throw error;
+-        lastError = error;
+-      }
+-    }
+-    throw lastError;
++    return requestWithRetry(deps, () => deps.http({ method: "GET", url }), {
++      partner: "tax",
++      maxAttempts: 3,
++      isRetryableStatus: (status) => status === 503,
++      delayMs: () => 50,
++      catchTransportErrors: true,
++    });
+   }
+ 
+   return {
+diff --git a/src/retry.ts b/src/retry.ts
+new file mode 100644
+index 0000000..ad2aa8a
+--- /dev/null
++++ b/src/retry.ts
+@@ -0,0 +1,36 @@
++import { type Http, type HttpResponse, PartnerError, type Sleep } from "./http.ts";
++
++export type RetryPolicy = {
++  partner: string;
++  maxAttempts: number;
++  isRetryableStatus: (status: number) => boolean;
++  /** ms to wait before the next attempt; `failedAttempt` is 1-based and `lastResponse` is the response that failed. */
++  delayMs: (failedAttempt: number, lastResponse: HttpResponse) => number;
++  /** Retry non-PartnerError transport exceptions too. A thrown PartnerError never retries. Off by default. */
++  catchTransportErrors?: boolean;
++};
++
++export async function requestWithRetry(
++  deps: { http: Http; sleep: Sleep },
++  request: () => Promise<HttpResponse>,
++  policy: RetryPolicy,
++): Promise<HttpResponse> {
++  let lastError: unknown;
++  let lastResponse: HttpResponse | undefined;
++  for (let attempt = 1; attempt <= policy.maxAttempts; attempt++) {
++    if (attempt > 1) {
++      await deps.sleep(policy.delayMs(attempt - 1, lastResponse!));
++    }
++    try {
++      const res = await request();
++      if (!policy.isRetryableStatus(res.status)) return res;
++      lastResponse = res;
++      lastError = new PartnerError(policy.partner, res.status);
++    } catch (error) {
++      if (!policy.catchTransportErrors || error instanceof PartnerError) throw error;
++      lastError = error;
++    }
++    if (attempt === policy.maxAttempts) throw lastError;
++  }
++  throw lastError;
++}
+diff --git a/test/retry-behavior.test.ts b/test/retry-behavior.test.ts
+new file mode 100644
+index 0000000..d52bb50
+--- /dev/null
++++ b/test/retry-behavior.test.ts
+@@ -0,0 +1,156 @@
++// Characterization tests pinning the exact retry behavior of each client
++// (attempt counts, delay formulas, retryable statuses, exception handling)
++// before the shared retry helper extraction. Must stay green across the move.
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import { createPaymentsClient } from "../src/clients/payments.ts";
++import { createShippingClient } from "../src/clients/shipping.ts";
++import { createTaxClient } from "../src/clients/tax.ts";
++import { PartnerError, type HttpResponse } from "../src/http.ts";
++
++const ok = (status: number, body: unknown = null, headers: Record<string, string> = {}): HttpResponse => ({
++  status,
++  headers,
++  body,
++});
++
++function recordingSleep() {
++  const calls: number[] = [];
++  const sleep = async (ms: number) => {
++    calls.push(ms);
++  };
++  return { sleep, calls };
++}
++
++// --- tax: 3 total attempts, fixed 50ms delay, retries only on 503 ---
++
++test("tax retries 503 up to 3 attempts with fixed 50ms delay, then throws", async () => {
++  const { sleep, calls } = recordingSleep();
++  let httpCalls = 0;
++  const client = createTaxClient({
++    http: async () => {
++      httpCalls++;
++      return ok(503);
++    },
++    sleep,
++  });
++  await assert.rejects(() => client.rate("94105"), PartnerError);
++  assert.equal(httpCalls, 3);
++  assert.deepEqual(calls, [50, 50]);
++});
++
++test("tax does not retry a non-503 error status", async () => {
++  let httpCalls = 0;
++  const client = createTaxClient({
++    http: async () => {
++      httpCalls++;
++      return ok(500);
++    },
++    sleep: async () => {
++      throw new Error("should not sleep");
++    },
++  });
++  await assert.rejects(() => client.rate("94105"), PartnerError);
++  assert.equal(httpCalls, 1);
++});
++
++test("tax retries a transport error and eventually succeeds", async () => {
++  const { sleep, calls } = recordingSleep();
++  const replies = [() => { throw new Error("network blip"); }, () => ok(200, { rate: 0.05 })];
++  const client = createTaxClient({
++    http: async () => replies.shift()!(),
++    sleep,
++  });
++  assert.equal(await client.rate("94105"), 0.05);
++  assert.deepEqual(calls, [50]);
++});
++
++test("tax rethrows a PartnerError from the transport immediately without retrying", async () => {
++  let httpCalls = 0;
++  const client = createTaxClient({
++    http: async () => {
++      httpCalls++;
++      throw new PartnerError("tax", 599);
++    },
++    sleep: async () => {
++      throw new Error("should not sleep");
++    },
++  });
++  await assert.rejects(() => client.rate("94105"), PartnerError);
++  assert.equal(httpCalls, 1);
++});
++
++// --- payments: 5 total attempts, exponential backoff, retry-after header honored on 429 ---
++
++test("payments backs off exponentially (200,400,800,1600) across 5 attempts then throws", async () => {
++  const { sleep, calls } = recordingSleep();
++  let httpCalls = 0;
++  const client = createPaymentsClient({
++    http: async () => {
++      httpCalls++;
++      return ok(500);
++    },
++    sleep,
++  });
++  await assert.rejects(() => client.charge("cus_1", 100), PartnerError);
++  assert.equal(httpCalls, 5);
++  assert.deepEqual(calls, [200, 400, 800, 1600]);
++});
++
++test("payments honors retry-after header (seconds) on 429", async () => {
++  const { sleep, calls } = recordingSleep();
++  const replies = [ok(429, null, { "retry-after": "2" }), ok(201, { id: "ch_1" })];
++  const client = createPaymentsClient({
++    http: async () => replies.shift()!,
++    sleep,
++  });
++  assert.equal(await client.charge("cus_1", 100), "ch_1");
++  assert.deepEqual(calls, [2000]);
++});
++
++test("payments does not retry a non-retryable status", async () => {
++  let httpCalls = 0;
++  const client = createPaymentsClient({
++    http: async () => {
++      httpCalls++;
++      return ok(400);
++    },
++    sleep: async () => {
++      throw new Error("should not sleep");
++    },
++  });
++  await assert.rejects(() => client.charge("cus_1", 100), PartnerError);
++  assert.equal(httpCalls, 1);
++});
++
++// --- shipping: 3 total attempts, exponential backoff, retries on >=500 only ---
++
++test("shipping backs off exponentially (100,200) across 3 attempts then throws", async () => {
++  const { sleep, calls } = recordingSleep();
++  let httpCalls = 0;
++  const client = createShippingClient({
++    http: async () => {
++      httpCalls++;
++      return ok(500);
++    },
++    sleep,
++  });
++  await assert.rejects(() => client.quote({ weightGrams: 1, toZip: "1" }), PartnerError);
++  assert.equal(httpCalls, 3);
++  assert.deepEqual(calls, [100, 200]);
++});
++
++test("shipping does not retry a non-5xx error status", async () => {
++  let httpCalls = 0;
++  const client = createShippingClient({
++    http: async () => {
++      httpCalls++;
++      return ok(404);
++    },
++    sleep: async () => {
++      throw new Error("should not sleep");
++    },
++  });
++  await assert.rejects(() => client.quote({ weightGrams: 1, toZip: "1" }), PartnerError);
++  assert.equal(httpCalls, 1);
++});

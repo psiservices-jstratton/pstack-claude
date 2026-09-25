@@ -1,0 +1,78 @@
+diff --git a/src/args.ts b/src/args.ts
+index 5bca167..f418dde 100644
+--- a/src/args.ts
++++ b/src/args.ts
+@@ -1,9 +1,9 @@
+ export type ReportOptions = {
+-  format: "table" | "json";
++  format: "table" | "json" | "csv";
+   warehouse?: string;
+ };
+ 
+-const FORMATS = ["table", "json"] as const;
++const FORMATS = ["table", "json", "csv"] as const;
+ 
+ export function parseReportArgs(args: string[]): ReportOptions {
+   const options: ReportOptions = { format: "table" };
+diff --git a/src/cli.ts b/src/cli.ts
+index 2cdbc5a..a640026 100644
+--- a/src/cli.ts
++++ b/src/cli.ts
+@@ -1,4 +1,5 @@
+ import { parseReportArgs } from "./args.ts";
++import { formatCsv } from "./format/csv.ts";
+ import { formatJson } from "./format/json.ts";
+ import { formatTable } from "./format/table.ts";
+ import { type Item, SAMPLE_ITEMS, selectItems } from "./inventory.ts";
+@@ -19,5 +20,7 @@ export function run(argv: string[], deps: Deps = defaultDeps): string {
+       return formatJson(items);
+     case "table":
+       return formatTable(items);
++    case "csv":
++      return formatCsv(items);
+   }
+ }
+diff --git a/src/format/csv.ts b/src/format/csv.ts
+new file mode 100644
+index 0000000..e5e89d9
+--- /dev/null
++++ b/src/format/csv.ts
+@@ -0,0 +1,16 @@
++import type { Item } from "../inventory.ts";
++import { COLUMNS } from "./table.ts";
++
++// Excel expects CRLF line endings and requires quoting any field that
++// contains a comma, quote, or line break (with embedded quotes doubled).
++function escapeCsvField(value: string): string {
++  if (/[",\r\n]/.test(value)) {
++    return `"${value.replace(/"/g, '""')}"`;
++  }
++  return value;
++}
++
++export function formatCsv(items: Item[]): string {
++  const rows = [COLUMNS.map((c) => c.header), ...items.map((item) => COLUMNS.map((c) => c.value(item)))];
++  return rows.map((r) => r.map(escapeCsvField).join(",")).join("\r\n");
++}
+diff --git a/test/cli.test.ts b/test/cli.test.ts
+index a45759e..0b6d731 100644
+--- a/test/cli.test.ts
++++ b/test/cli.test.ts
+@@ -18,3 +18,17 @@ test("json report filters by warehouse", () => {
+ test("unknown formats are rejected", () => {
+   assert.throws(() => run(["report", "--format", "xml"]), /Unknown format: xml/);
+ });
++
++test("csv report matches table columns and escapes special characters", () => {
++  const out = run(["report", "--format", "csv"], {
++    loadItems: () => [
++      { sku: "A-1", name: 'Widget, "deluxe"\nedition', warehouse: "RNO", qty: 3 },
++      { sku: "B-2", name: "Plain widget", warehouse: "SLC", qty: 1 },
++    ],
++  });
++  const lines = out.split("\r\n");
++  assert.equal(lines[0], "SKU,Name,Warehouse,Qty");
++  assert.equal(lines.length, 3);
++  assert.equal(out.includes('"Widget, ""deluxe""\nedition"'), true);
++  assert.match(lines[2], /^B-2,Plain widget,SLC,1$/);
++});

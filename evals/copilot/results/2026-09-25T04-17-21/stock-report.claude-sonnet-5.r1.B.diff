@@ -1,0 +1,81 @@
+diff --git a/src/args.ts b/src/args.ts
+index 5bca167..f418dde 100644
+--- a/src/args.ts
++++ b/src/args.ts
+@@ -1,9 +1,9 @@
+ export type ReportOptions = {
+-  format: "table" | "json";
++  format: "table" | "json" | "csv";
+   warehouse?: string;
+ };
+ 
+-const FORMATS = ["table", "json"] as const;
++const FORMATS = ["table", "json", "csv"] as const;
+ 
+ export function parseReportArgs(args: string[]): ReportOptions {
+   const options: ReportOptions = { format: "table" };
+diff --git a/src/cli.ts b/src/cli.ts
+index 2cdbc5a..a640026 100644
+--- a/src/cli.ts
++++ b/src/cli.ts
+@@ -1,4 +1,5 @@
+ import { parseReportArgs } from "./args.ts";
++import { formatCsv } from "./format/csv.ts";
+ import { formatJson } from "./format/json.ts";
+ import { formatTable } from "./format/table.ts";
+ import { type Item, SAMPLE_ITEMS, selectItems } from "./inventory.ts";
+@@ -19,5 +20,7 @@ export function run(argv: string[], deps: Deps = defaultDeps): string {
+       return formatJson(items);
+     case "table":
+       return formatTable(items);
++    case "csv":
++      return formatCsv(items);
+   }
+ }
+diff --git a/src/format/csv.ts b/src/format/csv.ts
+new file mode 100644
+index 0000000..b1c012c
+--- /dev/null
++++ b/src/format/csv.ts
+@@ -0,0 +1,14 @@
++import type { Item } from "../inventory.ts";
++import { COLUMNS } from "./table.ts";
++
++function escapeField(field: string): string {
++  if (/[",\r\n]/.test(field)) {
++    return `"${field.replace(/"/g, '""')}"`;
++  }
++  return field;
++}
++
++export function formatCsv(items: Item[]): string {
++  const rows = [COLUMNS.map((c) => c.header), ...items.map((item) => COLUMNS.map((c) => c.value(item)))];
++  return rows.map((r) => r.map(escapeField).join(",")).join("\r\n") + "\r\n";
++}
+diff --git a/test/cli.test.ts b/test/cli.test.ts
+index a45759e..703cd81 100644
+--- a/test/cli.test.ts
++++ b/test/cli.test.ts
+@@ -18,3 +18,22 @@ test("json report filters by warehouse", () => {
+ test("unknown formats are rejected", () => {
+   assert.throws(() => run(["report", "--format", "xml"]), /Unknown format: xml/);
+ });
++
++test("csv report has a header row and one row per item", () => {
++  const rows = run(["report", "--format", "csv"]).split("\r\n").filter((r) => r.length > 0);
++  assert.equal(rows[0], "SKU,Name,Warehouse,Qty");
++  assert.equal(rows.length, 5);
++  assert.match(rows[1], /^BK-100,/);
++});
++
++test("csv report quotes and escapes names containing commas or double quotes", () => {
++  const out = run(["report", "--format", "csv"]);
++  assert.match(out, /"Oil filter 3\/4"" thread"/);
++});
++
++test("csv report rows are separated by CRLF", () => {
++  const out = run(["report", "--format", "csv"]);
++  assert.match(out, /\r\n/);
++  const withoutCrlf = out.replace(/\r\n/g, "");
++  assert.equal(withoutCrlf.includes("\n"), false);
++});

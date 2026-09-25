@@ -1,0 +1,31 @@
+diff --git a/src/pricing/rules.ts b/src/pricing/rules.ts
+index d098b92..9f97556 100644
+--- a/src/pricing/rules.ts
++++ b/src/pricing/rules.ts
+@@ -18,7 +18,8 @@ export function ruleFor(tier: string): DiscountRule {
+     rule = RULES[tier] ?? RULES.basic;
+     cache.set(tier, rule);
+   }
+-  return rule;
++  // Return a fresh copy so callers can never mutate the cached/shared rule.
++  return { ...rule };
+ }
+ 
+ export function knownTiers(): string[] {
+diff --git a/src/promotions.ts b/src/promotions.ts
+index fcfdb4a..b637643 100644
+--- a/src/promotions.ts
++++ b/src/promotions.ts
+@@ -20,7 +20,9 @@ export function findPromo(code: string | undefined, today: string): Promo | unde
+ 
+ export function withPromo(rule: DiscountRule, promo: Promo | undefined): DiscountRule {
+   if (!promo) return rule;
+-  rule.percent += promo.extraPercent;
+-  rule.label = `${rule.label} + ${promo.code}`;
+-  return rule;
++  return {
++    ...rule,
++    percent: rule.percent + promo.extraPercent,
++    label: `${rule.label} + ${promo.code}`,
++  };
+ }

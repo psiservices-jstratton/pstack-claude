@@ -1,0 +1,27 @@
+diff --git a/src/dedupe.ts b/src/dedupe.ts
+index efa7bf0..478bb05 100644
+--- a/src/dedupe.ts
++++ b/src/dedupe.ts
+@@ -11,15 +11,16 @@ export type Contact = {
+ // already kept. The first occurrence wins. Blank fields never match.
+ export function dedupeContacts(contacts: Contact[]): Contact[] {
+   const kept: Contact[] = [];
++  const seenEmails = new Set<string>();
++  const seenPhones = new Set<string>();
+   for (const contact of contacts) {
+     const email = normalizeEmail(contact.email);
+     const phone = normalizePhone(contact.phone);
+-    const duplicate = kept.some((other) => {
+-      const sameEmail = email !== "" && normalizeEmail(other.email) === email;
+-      const samePhone = phone !== "" && normalizePhone(other.phone) === phone;
+-      return sameEmail || samePhone;
+-    });
+-    if (!duplicate) kept.push(contact);
++    const duplicate = (email !== "" && seenEmails.has(email)) || (phone !== "" && seenPhones.has(phone));
++    if (duplicate) continue;
++    kept.push(contact);
++    if (email !== "") seenEmails.add(email);
++    if (phone !== "") seenPhones.add(phone);
+   }
+   return kept;
+ }
