@@ -1,0 +1,1 @@
+Support escalated a billing problem: after a customer uses a promo code, later invoices for other customers on the same tier also come out with the promo discount, even though they never entered a code. It keeps getting worse through the day, and restarting the service makes it go away for a while. Please find the cause and fix it.

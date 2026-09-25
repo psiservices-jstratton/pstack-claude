@@ -1,0 +1,11 @@
+{
+  "name": "stock-report",
+  "version": "0.8.2",
+  "private": true,
+  "type": "module",
+  "bin": { "stock": "src/main.ts" },
+  "scripts": {
+    "test": "node --test",
+    "report": "node src/main.ts report"
+  }
+}

@@ -49,7 +49,7 @@ The generator rejects missing Markdown links, links outside the skills tree, and
 
 CI reruns the generator and fails if files change, so commit its output.
 
-`tests/copilot-smoke.sh` is a manual install check for GitHub Copilot. It needs a signed-in `copilot` CLI, uses a throwaway `COPILOT_HOME` and `HOME`, spends about six premium requests, and skips when `copilot` is missing. Run it after changing the hook, the Copilot addenda, or `setup-pstack`.
+`tests/copilot-smoke.sh` is a manual install check for GitHub Copilot. It needs a signed-in `copilot` CLI, uses a throwaway `COPILOT_HOME` and `HOME`, spends about six premium requests, and skips when `copilot` is missing. Run it after changing the hook, the Copilot addenda, or `setup-pstack`. For a behavior comparison, [`evals/copilot/`](evals/copilot/README.md) holds a blinded A/B harness that runs plain Copilot against Copilot with pstack on small TypeScript fixtures with hidden checks. It costs about one premium request per candidate session plus one for the judge.
 
 When adding a skill, include `name` and `description` in its frontmatter. Public skills also need a row in the slash-command table. The row supplies the Codex menu description and ordering. The generator reports any skill missing a row or any row without a skill.
 

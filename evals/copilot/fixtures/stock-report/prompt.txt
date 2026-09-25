@@ -1,0 +1,1 @@
+Ops wants to pull the stock report into a spreadsheet. Please add a csv option to `report --format`: one row per item with the same columns as the table view, and it has to open cleanly in Excel even when product names contain commas, quotes, or line breaks.
