@@ -11,7 +11,7 @@
 #   4. both plugin agents register, and a pstack:poteto-agent dispatch with an
 #      explicit model runs on that model
 #   5. with no model sheet, a multi-model skill runs setup-pstack first
-#   6. setup-pstack writes only model IDs the CLI lists
+#   6. setup-pstack writes only model IDs the CLI accepts, with multi-vendor panels
 #
 # Needs the `copilot` CLI signed in, `jq`, and network. Each probe is one
 # short -p session (about 5 premium requests in all with the default model).
@@ -88,8 +88,9 @@ else
 fi
 setup_first="This Copilot home has no pstack model sheet yet"
 if [[ "$context" == *"$setup_first"* ]]; then pass "no sheet: context carries the setup-first line"; else fail "no sheet: setup-first line missing"; fi
-listed="$(jq -r 'select(.type == "system.message") | .data.content' "$events" | grep -c '<location>plugin</location>' || true)"
-if [ "$listed" -gt 0 ] && jq -r 'select(.type == "system.message") | .data.content' "$events" | grep -q '<name>poteto-mode</name>'; then
+system_prompt="$(jq -r 'select(.type == "system.message") | .data.content' "$events")"
+listed="$(grep -c '<location>plugin</location>' <<<"$system_prompt" || true)"
+if [ "$listed" -gt 0 ] && [[ "$system_prompt" == *"<name>poteto-mode</name>"* ]]; then
   pass "system prompt lists $listed plugin skills including poteto-mode (Copilot truncates long skill lists)"
 else
   fail "system prompt lists no pstack skills"
@@ -147,7 +148,14 @@ else
 fi
 
 # 6. setup-pstack with the task tool available writes only real Copilot model IDs.
-# The known IDs come from the CLI's own `model` setting list.
+# The known IDs come from the CLI's own `model` setting list. That list can lag
+# the task tool's model enum, so an ID missing from it is started once with
+# --model: the CLI rejects an unavailable model before sending anything.
+model_starts() {
+  local out
+  out="$(cd "$work" && copilot -s --model "$1" --available-tools view --no-ask-user -p 'Reply with OK.' 2>&1 || true)"
+  [ -n "$out" ] && [[ "$out" != *"is not available"* ]]
+}
 rm -f "$home/pstack-models.md"
 known="$(copilot help config 2>/dev/null | awk '/^ *`model`:/{on=1; next} on && /^ *- "/{gsub(/[ "]/, ""); sub(/^-/, ""); print; next} on && NF==0{exit}')"
 events="$(probe --allow-all-tools -p 'Run the setup-pstack skill now and save the sheet. I accept every model you propose; do not ask me anything.')"
@@ -157,12 +165,23 @@ else
   bad=""
   while IFS= read -r value; do
     case "$value" in "" | on | off | inherit-parent | auto) continue ;; esac
-    grep -qxF "$value" <<<"$known" || bad="$bad $value"
+    grep -qxF "$value" <<<"$known" || model_starts "$value" || bad="$bad $value"
   done < <(grep -E '^[a-z][a-z ,-]*: ' "$home/pstack-models.md" | cut -d: -f2- | tr ',' '\n' | tr -d ' ')
   if [ -z "$bad" ]; then
-    pass "setup-pstack wrote only listed Copilot model IDs"
+    pass "setup-pstack wrote only real Copilot model IDs"
   else
     fail "setup-pstack wrote unknown model IDs:$bad"
+  fi
+  # Panels need distinct vendors (the ID prefix before the first dash).
+  mono=""
+  while IFS= read -r line; do
+    vendors="$(cut -d: -f2- <<<"$line" | tr ',' '\n' | tr -d ' ' | { grep -vxE 'inherit-parent|auto|[[:space:]]*' || true; } | cut -d- -f1 | sort -u | wc -l | tr -d ' ')"
+    [ "$vendors" -ge 2 ] || mono="$mono; $line"
+  done < <(grep -E '^(arena runners|arena cross-judge pool|architect runners|interrogate reviewers): ' "$home/pstack-models.md")
+  if [ -z "$mono" ]; then
+    pass "setup-pstack drew each panel from at least two vendors"
+  else
+    fail "setup-pstack wrote single-vendor panels${mono}"
   fi
 fi
 

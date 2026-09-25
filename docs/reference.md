@@ -142,7 +142,7 @@ pstack ships no default Copilot models, because the models an account reaches de
 
 Copilot lists only part of a large plugin's skills in its prompt, so some pstack skills do not appear there; each one still loads by name. If another hook or a skills-only install displaces the routing instruction, `setup-pstack` offers a standing instruction for `~/.copilot/copilot-instructions.md`.
 
-[`tests/copilot-smoke.sh`](../tests/copilot-smoke.sh) installs the checkout into a throwaway `COPILOT_HOME` and checks installation, routing, `session hook: off`, agent dispatch with an explicit model, and first-run setup from each session's `events.jsonl`. It needs a signed-in `copilot` CLI, spends about six premium requests, and skips when `copilot` is missing. CI does not run it.
+[`tests/copilot-smoke.sh`](../tests/copilot-smoke.sh) installs the checkout into a throwaway `COPILOT_HOME` and checks installation, routing, `session hook: off`, agent dispatch with an explicit model, first-run setup, and the model IDs and panel vendors setup writes, from each session's `events.jsonl` and the written sheet. It needs a signed-in `copilot` CLI, spends about six premium requests, and skips when `copilot` is missing. CI does not run it.
 
 ## Configuration and dependencies
 
