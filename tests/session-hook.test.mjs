@@ -11,16 +11,27 @@ const pluginRoot = fileURLToPath(new URL("../plugins/pstack/", import.meta.url))
 const sessionStart = JSON.parse(readFileSync(join(pluginRoot, "hooks/hooks.json"), "utf8")).hooks.SessionStart[0];
 const command = sessionStart.hooks[0].command;
 const mandate = readFileSync(join(pluginRoot, "hooks/session-start-context.md"), "utf8");
+const copilotContext = readFileSync(join(pluginRoot, "hooks/session-start-context.json"), "utf8");
 const codexManifest = JSON.parse(readFileSync(join(pluginRoot, ".codex-plugin/plugin.json"), "utf8"));
 
 // Codex sets PLUGIN_ROOT; CODEX_HOME is only present when the user has
-// relocated their Codex directory.
+// relocated their Codex directory. GitHub Copilot sets every plugin-root
+// variable plus COPILOT_PLUGIN_ROOT (observed on Copilot CLI 1.0.87), and
+// COPILOT_HOME only when the user relocated ~/.copilot.
+const copilotEnv = () => ({ PLUGIN_ROOT: pluginRoot, COPILOT_PLUGIN_ROOT: pluginRoot, COPILOT_CLI: "1" });
 const runtimes = {
-  claude: { sheetDir: ".claude", env: () => ({}) },
-  codex: { sheetDir: ".codex", env: () => ({ PLUGIN_ROOT: pluginRoot }) },
+  claude: { sheetDir: ".claude", env: () => ({}), out: mandate },
+  codex: { sheetDir: ".codex", env: () => ({ PLUGIN_ROOT: pluginRoot }), out: mandate },
   "codex with CODEX_HOME": {
     sheetDir: "codex-home",
     env: (sheetRoot) => ({ PLUGIN_ROOT: pluginRoot, CODEX_HOME: sheetRoot }),
+    out: mandate,
+  },
+  copilot: { sheetDir: ".copilot", env: copilotEnv, out: copilotContext },
+  "copilot with COPILOT_HOME": {
+    sheetDir: "copilot-home",
+    env: (sheetRoot) => ({ ...copilotEnv(), COPILOT_HOME: sheetRoot }),
+    out: copilotContext,
   },
 };
 
@@ -54,17 +65,17 @@ describe("SessionStart hook", () => {
   for (const runtime of Object.keys(runtimes)) {
     describe(runtime, () => {
       test("injects the mandate when no sheet exists", () => {
-        expect(runHook(runtime, null)).toEqual({ status: 0, out: mandate, err: "" });
+        expect(runHook(runtime, null)).toEqual({ status: 0, out: runtimes[runtime].out, err: "" });
       });
 
       test("injects the mandate when the sheet has no session hook line", () => {
-        expect(runHook(runtime, "bug-fix: configured-model\n")).toEqual({ status: 0, out: mandate, err: "" });
+        expect(runHook(runtime, "bug-fix: configured-model\n")).toEqual({ status: 0, out: runtimes[runtime].out, err: "" });
       });
 
       test("injects the mandate when the sheet says on", () => {
         expect(runHook(runtime, "bug-fix: configured-model\nsession hook: on\n")).toEqual({
           status: 0,
-          out: mandate,
+          out: runtimes[runtime].out,
           err: "",
         });
       });
@@ -78,4 +89,41 @@ describe("SessionStart hook", () => {
       });
     });
   }
+
+  // Copilot parses the hook's stdout with one JSON.parse and reads
+  // additionalContext; plain text is dropped.
+  test("Copilot output is one JSON object carrying the mandate and the Copilot addendum", () => {
+    const { out } = runHook("copilot", null);
+    const parsed = JSON.parse(out);
+    expect(Object.keys(parsed)).toEqual(["additionalContext"]);
+    const close = "</EXTREMELY_IMPORTANT>";
+    const body = mandate.slice(0, mandate.indexOf(close));
+    expect(parsed.additionalContext.startsWith(body)).toBe(true);
+    expect(parsed.additionalContext).toContain("On GitHub Copilot, load pstack skills by their bare names");
+    expect(parsed.additionalContext.trimEnd().endsWith(close)).toBe(true);
+  });
+
+  test("each runtime reads only its own sheet", () => {
+    const home = mkdtempSync(join(tmpdir(), "pstack-hook-"));
+    try {
+      for (const dir of [".claude", ".codex"]) {
+        mkdirSync(join(home, dir));
+        writeFileSync(join(home, dir, "pstack-models.md"), "session hook: off\n");
+      }
+      const run = (env) =>
+        spawnSync("sh", ["-c", command], {
+          env: { PATH: process.env.PATH, HOME: home, CLAUDE_PLUGIN_ROOT: pluginRoot, ...env },
+          encoding: "utf8",
+        }).stdout;
+      expect(run(copilotEnv())).toBe(copilotContext);
+      rmSync(join(home, ".claude"), { recursive: true });
+      rmSync(join(home, ".codex"), { recursive: true });
+      mkdirSync(join(home, ".copilot"));
+      writeFileSync(join(home, ".copilot", "pstack-models.md"), "session hook: off\n");
+      expect(run({})).toBe(mandate);
+      expect(run({ PLUGIN_ROOT: pluginRoot })).toBe(mandate);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
 });
