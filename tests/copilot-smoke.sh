@@ -11,7 +11,7 @@
 #   4. both plugin agents register, and a pstack:poteto-agent dispatch with an
 #      explicit model runs on that model
 #   5. with no model sheet, a multi-model skill runs setup-pstack first
-#   6. setup-pstack writes only model IDs the CLI accepts, with multi-vendor panels
+#   6. setup-pstack writes no sheet without answers, and exactly the supplied IDs
 #   7. without --allow-all-paths, and with the temp dir outside the sandbox, the
 #      saved model choices reach the session with no read of the sheet, and a
 #      plugin playbook loads, with no path-access request at all
@@ -19,11 +19,12 @@
 #      marketplace install under $COPILOT_HOME/installed-plugins (pushed code)
 #
 # Needs the `copilot` CLI signed in, `jq`, and network. Each probe is one
-# short -p session (about 5 premium requests in all with the default model).
+# short -p session (about 7 premium requests in all with the default model).
 # Skips with exit 0 when `copilot` is missing. CI does not run it.
 #
 #   tests/copilot-smoke.sh            # default probe model claude-haiku-4.5
 #   SMOKE_MODEL=gpt-5-mini tests/copilot-smoke.sh
+#   SMOKE_SETUP_MODEL=claude-sonnet-5 tests/copilot-smoke.sh   # setup probes 5 and 6
 #   KEEP=1 tests/copilot-smoke.sh     # keep the temp COPILOT_HOME for inspection
 #   SMOKE_GITHUB=psiservices-jstratton/pstack-claude@copilot-build tests/copilot-smoke.sh
 set -euo pipefail
@@ -36,6 +37,10 @@ command -v jq >/dev/null 2>&1 || { echo "FAIL: jq is required" >&2; exit 1; }
 
 repo="$(cd "$(dirname "$0")/.." && pwd -P)"
 model="${SMOKE_MODEL:-claude-haiku-4.5}"
+# The setup probes (5 and 6) need a model that follows setup-pstack over a
+# request to "save the sheet"; claude-haiku-4.5 wrote guessed models in about
+# half its runs.
+setup_model="${SMOKE_SETUP_MODEL:-gpt-5.4-mini}"
 root="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/pstack-copilot-smoke.XXXXXX")" && pwd -P)"
 home="$root/home"
 work="$root/inventory-service"
@@ -51,11 +56,12 @@ failures=0
 pass() { printf 'ok: %s\n' "$1"; }
 fail() { printf 'FAIL: %s\n' "$1"; failures=$((failures + 1)); }
 
-# Run one -p session from the scratch workdir; print its events.jsonl path.
+# Run one -p session from the scratch workdir on $PROBE_MODEL, else $model;
+# print its events.jsonl path.
 probe() {
   local before after
   before="$(ls "$home/session-state" 2>/dev/null | sort || true)"
-  (cd "$work" && copilot -s --model "$model" --no-ask-user "$@" >"$root/last-reply.txt" 2>"$root/last-stderr.txt") || true
+  (cd "$work" && copilot -s --model "${PROBE_MODEL:-$model}" --no-ask-user "$@" >"$root/last-reply.txt" 2>"$root/last-stderr.txt") || true
   after="$(ls "$home/session-state" 2>/dev/null | sort || true)"
   local id
   id="$(comm -13 <(printf '%s\n' "$before") <(printf '%s\n' "$after") | head -1)"
@@ -140,7 +146,7 @@ rm "$home/pstack-models.md"
 
 # 5. No model sheet: a multi-model skill must run setup-pstack before any fan-out.
 # The task tool is withheld so the probe cannot spend a panel.
-events="$(probe --allow-all-tools --excluded-tools task -p 'Use the arena skill to decide whether a function that adds two integers should be named add or sum. Keep it brief.')"
+events="$(PROBE_MODEL=$setup_model probe --allow-all-tools --excluded-tools task -p 'Use the arena skill to decide whether a function that adds two integers should be named add or sum. Keep it brief.')"
 order="$(jq -r 'select(.type == "tool.execution_start" and .data.toolName == "skill") | .data.arguments.skill' "$events" | tr '\n' ' ')"
 if [[ "$order" == *"setup-pstack"* ]]; then
   pass "missing sheet: setup-pstack ran (skill calls: $order)"
@@ -150,44 +156,51 @@ fi
 if [ -e "$user/.copilot/pstack-models.md" ]; then
   fail "setup wrote the sheet to ~/.copilot instead of \$COPILOT_HOME"
 else
-  pass "nothing landed in ~/.copilot (sheet under \$COPILOT_HOME: $([ -e "$home/pstack-models.md" ] && echo yes || echo no))"
+  pass "nothing landed in ~/.copilot"
+fi
+if [ -e "$home/pstack-models.md" ]; then
+  fail "missing sheet: setup wrote a sheet without asking ($events): $(grep -E '^[a-z][a-z ,-]*: ' "$home/pstack-models.md" | tr '\n' '|')"
+else
+  pass "missing sheet: setup without ask_user wrote no sheet"
 fi
 
-# 6. setup-pstack with the task tool available writes only real Copilot model IDs.
-# The known IDs come from the CLI's own `model` setting list. That list can lag
-# the task tool's model enum, so an ID missing from it is started once with
-# --model: the CLI rejects an unavailable model before sending anything.
-model_starts() {
-  local out
-  out="$(cd "$work" && copilot -s --model "$1" --available-tools view --no-ask-user -p 'Reply with OK.' 2>&1 || true)"
-  [ -n "$out" ] && [[ "$out" != *"is not available"* ]]
-}
-rm -f "$home/pstack-models.md"
+# 6. setup-pstack never picks models for the user. A -p session cannot ask, so
+# with no answers it writes no sheet; with every answer in the request it writes
+# exactly those IDs. The panel takes the first GPT and Gemini IDs from the CLI's
+# own `model` setting list, next to the probe model. These run on $setup_model.
 known="$(copilot help config 2>/dev/null | awk '/^ *`model`:/{on=1; next} on && /^ *- "/{gsub(/[ "]/, ""); sub(/^-/, ""); print; next} on && NF==0{exit}')"
-events="$(probe --allow-all-tools -p 'Run the setup-pstack skill now and save the sheet. I accept every model you propose; do not ask me anything.')"
-if [ ! -e "$home/pstack-models.md" ]; then
-  fail "setup-pstack wrote no sheet under \$COPILOT_HOME ($events)"
+rm -f "$home/pstack-models.md"
+events="$(PROBE_MODEL=$setup_model probe --allow-all-tools -p 'Run the setup-pstack skill now and save the sheet.')"
+if [ -e "$home/pstack-models.md" ]; then
+  fail "setup-pstack wrote a sheet with no answers from the user ($events): $(tr '\n' ' ' <"$home/pstack-models.md")"
 else
-  bad=""
-  while IFS= read -r value; do
-    case "$value" in "" | on | off | inherit-parent | auto) continue ;; esac
-    grep -qxF "$value" <<<"$known" || model_starts "$value" || bad="$bad $value"
-  done < <(grep -E '^[a-z][a-z ,-]*: ' "$home/pstack-models.md" | cut -d: -f2- | tr ',' '\n' | tr -d ' ')
-  if [ -z "$bad" ]; then
-    pass "setup-pstack wrote only real Copilot model IDs"
+  pass "no answers and no ask_user: setup-pstack wrote no sheet"
+fi
+gpt="$(grep -m1 '^gpt-' <<<"$known" || true)"
+gemini="$(grep -m1 '^gemini-' <<<"$known" || true)"
+if [ -z "$gpt" ] || [ -z "$gemini" ]; then
+  fail "the CLI's model list has no GPT or Gemini ID: $known"
+else
+  panel="$model, $gpt, $gemini"
+  events="$(PROBE_MODEL=$setup_model probe --allow-all-tools -p "Run the setup-pstack skill now and save the sheet. My answers: default model $model. Strongest model $model. Panel models $panel, in that order, and no more. No role overrides. Session hook on.")"
+  sheet="$home/pstack-models.md"
+  if [ ! -e "$sheet" ]; then
+    fail "setup-pstack wrote no sheet from supplied answers ($events)"
   else
-    fail "setup-pstack wrote unknown model IDs:$bad"
-  fi
-  # Panels need distinct vendors (the ID prefix before the first dash).
-  mono=""
-  while IFS= read -r line; do
-    vendors="$(cut -d: -f2- <<<"$line" | tr ',' '\n' | tr -d ' ' | { grep -vxE 'inherit-parent|auto|[[:space:]]*' || true; } | cut -d- -f1 | sort -u | wc -l | tr -d ' ')"
-    [ "$vendors" -ge 2 ] || mono="$mono; $line"
-  done < <(grep -E '^(arena runners|arena cross-judge pool|architect runners|interrogate reviewers): ' "$home/pstack-models.md")
-  if [ -z "$mono" ]; then
-    pass "setup-pstack drew each panel from at least two vendors"
-  else
-    fail "setup-pstack wrote single-vendor panels${mono}"
+    wrong=""
+    for role in "feature, refactoring" "judgment and prose" "how explorer" "how explainer" "why investigators" "why synthesizer" \
+      "reflect tooling" "reflect judgment, divergent, synthesizer" "swarm workers" "bug-fix" "perf-issue" "hillclimb" "strongest judgment"; do
+      grep -qxF "$role: $model" "$sheet" || wrong="$wrong; $role"
+    done
+    for role in "arena runners" "arena cross-judge pool" "architect runners" "interrogate reviewers"; do
+      grep -qxF "$role: $panel" "$sheet" || wrong="$wrong; $role"
+    done
+    grep -qxF "session hook: on" "$sheet" || wrong="$wrong; session hook"
+    if [ -z "$wrong" ]; then
+      pass "supplied answers: the sheet holds exactly those IDs for all 17 roles"
+    else
+      fail "supplied answers: wrong or missing lines${wrong} ($sheet: $(tr '\n' '|' <"$sheet"))"
+    fi
   fi
 fi
 
