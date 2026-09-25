@@ -19,7 +19,7 @@ pstack skills are written in Claude Code tool language (the `Skill` tool, the `A
 | Background subagent (`run_in_background: true`) | `task` with `mode: "background"`; you are notified when it finishes. |
 | Read a subagent's result / message a running one | `read_agent` / `write_agent`; `list_agents` finds IDs you lost. |
 | Track tasks (the todolist; `TaskCreate` / `TaskUpdate`, or `TodoWrite` on Claude Code) | The `sql` tool against the session database's built-in `todos` table (plus `todo_deps` for ordering). |
-| Ask the human a fixed-choice question (`AskUserQuestion`) | `ask_user` with a `choices` list, one question per call. |
+| Ask the human a fixed-choice question (`AskUserQuestion`) | `ask_user` with a `choices` list, one question per call. Where `ask_user` takes an elicitation form instead (`message` and a `requestedSchema`, as on Copilot CLI 1.0.89), one `oneOf` string property is the choice list. Treat it as single-select only, because the Copilot app's `ask_user` has no multi-select, and the UI adds a free-text option on its own. Emulate multi-select with sequential questions. |
 | Search Claude Code transcripts under `~/.claude/projects/` | Copilot session state, scoped to the current workspace; see Transcripts below. |
 
 ## Subagent policy
@@ -97,7 +97,7 @@ Affected skill entry points point here. Most skills need only the tables above. 
 | Skill | On GitHub Copilot |
 |-------|-------------------|
 | `interrogate` | Each reviewer is a `task` call: `subagent_type` becomes `agent_type`, `readonly: true` becomes a read-only agent type (see Subagent policy), and `model` comes from the sheet. Keep the panel's vendors distinct. |
-| `setup-pstack` | The skill's Other runtimes table names the Copilot sheet path and how it loads. List models from the `task` tool's `model` enum. The role rows are identical; the `session hook` line also controls the Copilot hook. |
+| `setup-pstack` | The skill's Other runtimes table names the Copilot sheet path and how it loads. Its [Copilot setup questions](../../setup-pstack/copilot.md) list models from the `task` tool's `model` enum and ask one `ask_user` question per tier and panel slot, grouped by vendor, with no recommended model. The role rows are identical; the `session hook` line also controls the Copilot hook. |
 | `arena` | Runners and the cross-judge pool come from the sheet's panel lines; pick the cross-judge from a different vendor than the candidate it grades. |
 | `no-comments` | Dispatch `task` with `agent_type: "pstack:comment-sicko"`. |
 | `swarm` | Workers are `task` calls with `mode: "background"`, each on its own worktree; in the app, `create_session` per worker. |

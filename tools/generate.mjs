@@ -404,8 +404,16 @@ export const COPILOT_SHEET_RULE =
   "Otherwise take them from the saved pstack model choices the plugin hook put in context. Only when neither is in context " +
   '(a skills-only install has no hook), print the sheet\'s absolute path with `bash` (`echo "${COPILOT_HOME:-$HOME/.copilot}/pstack-models.md"`; ' +
   "file tools expand neither `~` nor variables) and `view` exactly that path; if it does not exist, run `setup-pstack` the same way.";
-const copilotPointer = (skill) =>
-  COPILOT_SHEET_SKILLS.includes(skill) ? `${COPILOT_POINTER} ${COPILOT_SHEET_RULE}` : COPILOT_POINTER;
+// setup-pstack's Copilot questions live in a port-owned file next to it, so the
+// upstream SKILL.md keeps only this stamped pointer.
+export const COPILOT_SETUP_RULE =
+  "Detect models and ask the user as [the Copilot setup questions](copilot.md) describe, in place of the questions in steps 1, 3, and 4: " +
+  "one `ask_user` question per tier and panel slot, each with a `choices` list.";
+const copilotPointer = (skill) => {
+  if (COPILOT_SHEET_SKILLS.includes(skill)) return `${COPILOT_POINTER} ${COPILOT_SHEET_RULE}`;
+  if (skill === "setup-pstack") return `${COPILOT_POINTER} ${COPILOT_SETUP_RULE}`;
+  return COPILOT_POINTER;
+};
 const POTETO_ADAPTATION = "These skills use Claude Code tool names";
 const POTETO_COPILOT_POINTER =
   "On GitHub Copilot, read [`references/copilot-tools.md`](references/copilot-tools.md) for the Copilot " +

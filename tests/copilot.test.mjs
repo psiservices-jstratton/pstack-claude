@@ -11,6 +11,7 @@ import {
   CODEX_POINTER,
   COPILOT_POINTER,
   COPILOT_POINTER_SKILLS,
+  COPILOT_SETUP_RULE,
   COPILOT_SHEET_RULE,
   COPILOT_SHEET_SKILLS,
   copilotSessionContext,
@@ -118,7 +119,8 @@ describe("Copilot pointers", () => {
     expect(COPILOT_SHEET_RULE).toContain("load the `setup-pstack` skill with the `skill` tool");
     for (const skill of COPILOT_POINTER_SKILLS) {
       const text = readFileSync(join(skillsDir, skill, "SKILL.md"), "utf8");
-      const want = COPILOT_SHEET_SKILLS.includes(skill) ? `${COPILOT_POINTER} ${COPILOT_SHEET_RULE}` : COPILOT_POINTER;
+      const rule = COPILOT_SHEET_SKILLS.includes(skill) ? COPILOT_SHEET_RULE : skill === "setup-pstack" ? COPILOT_SETUP_RULE : "";
+      const want = rule ? `${COPILOT_POINTER} ${rule}` : COPILOT_POINTER;
       expect({ skill, line: text.split("\n").find((l) => l.startsWith(COPILOT_POINTER)) }).toEqual({ skill, line: want });
     }
   });
@@ -204,5 +206,75 @@ describe("Copilot session context", () => {
     expect(addendum).toContain("saved pstack model choices");
     expect(addendum).toContain("Do not `view` the sheet");
     expect(addendum).toContain("use the values it just wrote");
+  });
+});
+
+// Copilot's ask_user is single-select with one question per call, and pstack
+// ships no Copilot models, so setup asks tier by tier from choice lists.
+describe("Copilot setup questions", () => {
+  const setupDir = join(skillsDir, "setup-pstack");
+  const skill = readFileSync(join(setupDir, "SKILL.md"), "utf8");
+  const questions = readFileSync(join(setupDir, "copilot.md"), "utf8");
+  const sheetShape = skill.slice(skill.indexOf("### 6. Write the override sheet"), skill.indexOf("### 7."));
+  const roles = [...sheetShape.matchAll(/^([a-z][a-z ,-]*): /gm)].map((m) => m[1]).filter((r) => r !== "session hook");
+  const sequence = questions.slice(questions.indexOf("## Question sequence"));
+
+  test("the setup pointer sends Copilot to the question file", () => {
+    expect(COPILOT_SETUP_RULE).toContain("[the Copilot setup questions](copilot.md)");
+    expect(COPILOT_SETUP_RULE).toContain("`choices` list");
+  });
+
+  test("every sheet role is written by exactly one tier or panel question", () => {
+    const written = [...sequence.matchAll(/\bwrites ([^.]*)\./g)].flatMap((m) => [...m[1].matchAll(/`([^`]+)`/g)].map((r) => r[1]));
+    expect(roles.length).toBe(17);
+    expect([...written].sort()).toEqual([...roles].sort());
+  });
+
+  test("asks by tier, panel slot, override, and hook, in order", () => {
+    const steps = [
+      "**Default model.**",
+      "**Strongest model.**",
+      "**Panel model 1 of 3**",
+      "**panel model 2 of 3**",
+      "**panel model 3 of 3**",
+      '"Add a 4th panel model?" with `Done` as the first choice',
+      "**Vendor check.**",
+      '"Override any individual role?" with `No, write the sheet (Recommended)` first',
+      "**Session hook.**",
+    ];
+    const at = steps.map((step) => sequence.indexOf(step));
+    expect(at.every((i) => i >= 0)).toBe(true);
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
+    expect(sequence).toContain("list the vendors not yet in the panel first");
+    expect(sequence).toContain("`Pick the panel again` and `Keep it anyway`");
+  });
+
+  test("every model question is a short choices list grouped by vendor", () => {
+    expect(questions).toContain("Ask every model question through `ask_user` with a `choices` list");
+    expect(questions).toContain("Never ask for models as one open question");
+    expect(questions).toContain("never bundle two questions into one call");
+    expect(questions).toContain("**Vendor.**");
+    expect(questions).toContain("so no choices list holds the whole enum");
+    expect(questions).toContain("`inherit-parent (run on the session's model)`");
+  });
+
+  test("recommends no model and marks saved values as current", () => {
+    expect(questions).toContain("Do not propose, pre-select, or label any model `(Recommended)`");
+    expect(questions.match(/\(Recommended\)/g)).toHaveLength(2);
+    expect(questions).toContain("labeled `(current)`");
+    expect(skill).not.toMatch(/propose a primary model|accept as-is or change specific roles.*Copilot/);
+  });
+
+  test("writes nothing it could not ask about", () => {
+    expect(questions).toContain("do not choose for the user and do not write the sheet");
+    expect(questions).toContain("Do not test for the sheet or its directory with `bash`");
+    expect(questions).toContain("Write the sheet in one tool call");
+  });
+
+  test("the mapping row says ask_user is single-select", () => {
+    const row = mapping.split("\n").find((l) => l.includes("(`AskUserQuestion`)"));
+    expect(row).toContain("`ask_user` with a `choices` list");
+    expect(row).toContain("single-select only");
+    expect(row).toContain("Emulate multi-select with sequential questions");
   });
 });
