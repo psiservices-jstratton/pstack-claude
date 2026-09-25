@@ -20,6 +20,10 @@
 //     -> each model-consuming skill's "## Models" section
 //     -> setup-pstack's override-sheet block and interrogate's reviewer table
 //     -> the "## Model names" section of poteto-mode/references/codex-tools.md
+//        and of poteto-mode/references/copilot-tools.md (Copilot ships no slugs)
+//   hooks/session-start-context.md + hooks/session-start-copilot.md
+//     -> hooks/session-start-context.json, the Copilot hook's JSON output
+//   COPILOT_POINTER_SKILLS -> a GitHub Copilot pointer after each Codex pointer
 //   plugins/pstack/agents/{poteto-agent,comment-sicko}.md, LICENSE,
 //   LICENSE-cursor-team-kit, and NOTICE-skills.md
 //     -> portable copies under poteto-mode/references/{agents,licenses}/
@@ -355,6 +359,44 @@ export const tableRows = (header, rowPrefix) => (lines) => {
 
 const blankPadded = (body) => ["", ...body.split("\n"), ""];
 
+// The paragraph a runtime pointer follows: the line starting with `anchor`,
+// plus the blank line and pointer line after it when already stamped. An
+// unstamped anchor yields an empty range just past it, so stamping inserts.
+export const afterLine = (anchor, owned) => (lines) => {
+  const i = lines.findIndex((l) => l.startsWith(anchor));
+  if (i === -1) return null;
+  const stamped = lines[i + 1] === "" && lines[i + 2]?.startsWith(owned);
+  return [i + 1, stamped ? i + 3 : i + 1];
+};
+
+// Every skill whose Codex pointer carries a GitHub Copilot pointer beside it.
+// main() fails when a Codex pointer appears in a skill missing from this list.
+export const CODEX_POINTER =
+  "On Codex, read the [platform mapping](../poteto-mode/references/codex-tools.md), including its per-skill notes, before following this skill.";
+export const COPILOT_POINTER =
+  "On GitHub Copilot, read the [platform mapping](../poteto-mode/references/copilot-tools.md), including its per-skill notes, before following this skill.";
+export const COPILOT_POINTER_SKILLS = [
+  "architect",
+  "arena",
+  "automate-me",
+  "babysit",
+  "create-verification-skill",
+  "how",
+  "interrogate",
+  "maintain-verification-skill",
+  "no-comments",
+  "reflect",
+  "setup-pstack",
+  "swarm",
+  "teach",
+  "why",
+];
+const POTETO_ADAPTATION = "These skills use Claude Code tool names";
+const POTETO_COPILOT_POINTER =
+  "On GitHub Copilot, read [`references/copilot-tools.md`](references/copilot-tools.md) for the Copilot " +
+  "equivalent of a Claude tool, model, path, or skill named by these workflows, on both the Copilot CLI and " +
+  "the Copilot app. `copilot-tools.md` covers only GitHub Copilot.";
+
 // Every generator-owned region: the file it lives in (repo-relative), how to
 // find it, and what it renders from the model policy. Adding a stamped region
 // means adding a row here; the stray-slug scan exempts exactly these spans.
@@ -400,6 +442,33 @@ export function regions(models) {
       locate: section("Model names"),
       render: () => blankPadded(codexModelNamesSection(models)),
     },
+    {
+      file: "plugins/pstack/skills/poteto-mode/references/copilot-tools.md",
+      name: "Model names section",
+      locate: section("Model names"),
+      render: () => blankPadded(copilotModelNamesSection(models)),
+    },
+  ];
+}
+
+// The GitHub Copilot pointer beside each Codex pointer. Kept apart from the
+// model-policy regions: it names no model, and its anchor is itself a port
+// line, so a file without the anchor (an upstream copy) is left alone.
+export function pointerRegions() {
+  const skillFile = (skill) => `plugins/pstack/skills/${skill}/SKILL.md`;
+  return [
+    ...COPILOT_POINTER_SKILLS.map((skill) => ({
+      file: skillFile(skill),
+      name: "Copilot pointer",
+      locate: afterLine(CODEX_POINTER, "On GitHub Copilot,"),
+      render: () => ["", COPILOT_POINTER],
+    })),
+    {
+      file: skillFile("poteto-mode"),
+      name: "Copilot pointer",
+      locate: afterLine(POTETO_ADAPTATION, "On GitHub Copilot,"),
+      render: () => ["", POTETO_COPILOT_POINTER],
+    },
   ];
 }
 
@@ -415,6 +484,10 @@ export function applyRegions(file, text, models, { strict = true } = {}) {
       continue;
     }
     lines.splice(range[0], range[1] - range[0], ...region.render());
+  }
+  for (const region of pointerRegions().filter((r) => r.file === file)) {
+    const range = region.locate(lines);
+    if (range) lines.splice(range[0], range[1] - range[0], ...region.render());
   }
   return lines.join("\n");
 }
@@ -512,6 +585,68 @@ export function codexModelNamesSection(models) {
   );
 }
 
+// Copilot ships no default slugs: the models a Copilot account can reach vary
+// by plan and policy, so the user picks them in setup-pstack.
+export function copilotModelNamesSection(models) {
+  const strongest = models.roles.filter((r) => r.tier === "strongest");
+  const skills = [...new Set(models.roles.map((r) => r.skill))];
+  const panel = models.copilot.panel.length
+    ? `A good default panel is ${codeList(models.copilot.panel)}.`
+    : "pstack ships no default Copilot panel.";
+  return (
+    "Skills name Claude Code model aliases in their Models sections. Those aliases are not Copilot model IDs, " +
+    "and the Copilot build ships no default model IDs: the models an account can reach depend on its plan " +
+    "and policy, so the user picks them once.\n\n" +
+    "- The model sheet is `${COPILOT_HOME:-~/.copilot}/pstack-models.md`. Read it with `view` before any " +
+    "dispatch that needs a role model. A role line there names the model for that role.\n" +
+    `- No sheet: before a skill that needs a role model (${skills.map(code).join(", ")}), run ` +
+    "`setup-pstack` first. After that, " +
+    "reuse the saved choices; do not ask again on later runs.\n" +
+    "- A role line in the sheet is the user's explicit model instruction, so pass it as the `task` tool's " +
+    "`model` parameter. A role with no line, or `inherit-parent`/`auto`, omits `model`.\n" +
+    `- Roles that default to the strongest model (${strongest.map((r) => code(r.role)).join(", ")}): ` +
+    "the strongest model the user chose.\n" +
+    "- Diverse-model panels (`arena`, `architect`, `interrogate`, `how` critics, `reflect`): the adversarial " +
+    "signal comes from model diversity, so fill a panel from distinct vendors in the `task` tool's `model` " +
+    `list (Claude, GPT, Gemini, Grok, and so on). ${panel} If only one vendor is reachable, vary reasoning ` +
+    "effort and note in the verdict that diversity was reduced.\n\n" +
+    "`setup-pstack` lists the models from the `model` enum of the `task` tool and writes only IDs it saw there."
+  );
+}
+
+// Copilot's block mirrors the tier keys like Codex's, but every value may be
+// empty: the build ships no slugs.
+export function validateCopilotModels(models) {
+  const block = models.copilot;
+  if (!block) throw new Error("models.json: no copilot block");
+  const want = Object.keys(models.tiers).sort().join(",");
+  if (Object.keys(block).sort().join(",") !== want) {
+    throw new Error(`models.json: copilot keys must be the tier keys (${want})`);
+  }
+  for (const key of Object.keys(block)) {
+    const v = block[key];
+    if (Array.isArray(models.tiers[key])) {
+      if (!Array.isArray(v) || v.some((m) => typeof m !== "string" || !m) || new Set(v).size !== v.length) {
+        throw new Error(`models.json: copilot.${key} must be a list of distinct model IDs (empty allowed)`);
+      }
+    } else if (v !== null && (typeof v !== "string" || !v)) {
+      throw new Error(`models.json: copilot.${key} must be a model ID or null`);
+    }
+  }
+}
+
+// Copilot parses a sessionStart hook's stdout as one JSON object, so the
+// hook prints a stamped JSON copy of the mandate: the Claude/Codex text with
+// the Copilot addendum inside the closing tag. No escaping happens at runtime.
+export function copilotSessionContext(mandate, addendum) {
+  const close = "</EXTREMELY_IMPORTANT>";
+  if (mandate.split(close).length !== 2) {
+    throw new Error(`hooks/session-start-context.md must contain exactly one ${close}`);
+  }
+  const body = mandate.replace(close, `\n${addendum.trim()}\n${close}`);
+  return JSON.stringify({ additionalContext: body }, null, 2) + "\n";
+}
+
 // After stamping, skill prose outside the regions the generator owns may name
 // no model: a full claude-* ID is rejected by the Agent tool, and a backticked
 // family name hard-codes a default that belongs in models.json.
@@ -582,10 +717,24 @@ function main() {
   }
 
   const models = loadModels();
+  validateCopilotModels(models);
   const skillsDir = join(repo, "plugins/pstack/skills");
 
+  const unpointed = markdownFiles(skillsDir)
+    .filter((full) => readFileSync(full, "utf8").includes(CODEX_POINTER))
+    .map((full) => full.slice(skillsDir.length + 1).replace(/\/SKILL\.md$/, ""))
+    .filter((skill) => !COPILOT_POINTER_SKILLS.includes(skill));
+  if (unpointed.length) {
+    throw new Error(`Codex pointer without a Copilot pointer (add to COPILOT_POINTER_SKILLS): ${unpointed.join(", ")}`);
+  }
+  const anchorless = pointerRegions().filter((r) => !r.locate(readFileSync(join(repo, r.file), "utf8").split("\n")));
+  if (anchorless.length) {
+    throw new Error(`Copilot pointer with no anchor to follow: ${anchorless.map((r) => r.file).join(", ")}`);
+  }
+
   let modelStamps = 0;
-  for (const file of new Set(regions(models).map((r) => r.file))) {
+  const stamped = [...regions(models), ...pointerRegions()].map((r) => r.file);
+  for (const file of new Set(stamped)) {
     const path = join(repo, file);
     if (stampFile(path, applyRegions(file, readFileSync(path, "utf8"), models), `${file} (models)`)) modelStamps++;
   }
@@ -641,6 +790,14 @@ function main() {
   const pluginRoot = join(repo, "plugins/pstack");
   validatePluginLayout(pluginRoot);
   console.log("ok: no commands/ directory; plugin agents dispatched by namespaced name");
+  const hooksDir = join(pluginRoot, "hooks");
+  const context = copilotSessionContext(
+    readFileSync(join(hooksDir, "session-start-context.md"), "utf8"),
+    readFileSync(join(hooksDir, "session-start-copilot.md"), "utf8"),
+  );
+  if (!stampFile(join(hooksDir, "session-start-context.json"), context, "hooks/session-start-context.json")) {
+    console.log("ok: hooks/session-start-context.json current");
+  }
   validateHooks(readFileSync(join(pluginRoot, "hooks/hooks.json"), "utf8"), {
     statOf: (rel) => (existsSync(join(pluginRoot, rel)) ? statSync(join(pluginRoot, rel)) : null),
   });

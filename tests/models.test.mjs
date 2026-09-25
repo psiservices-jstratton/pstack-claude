@@ -56,7 +56,7 @@ describe("models.json shape", () => {
 
   test("the file stays one row per entry so a role change is a one-line diff", () => {
     const text = readFileSync(join(repoRoot, "plugins/pstack/models.json"), "utf8");
-    expect(text.split("\n").length).toBeLessThan(raw.roles.length * 2);
+    expect(text.split("\n").length).toBeLessThan(raw.roles.length * 3);
     expect(text.match(/^\s*\{ "/gm)).toHaveLength(raw.roles.length);
   });
 
