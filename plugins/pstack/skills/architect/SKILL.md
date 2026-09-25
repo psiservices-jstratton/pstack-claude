@@ -7,7 +7,7 @@ description: "Sketch types, signatures, and module structure before code, then s
 
 On Codex, read the [platform mapping](../poteto-mode/references/codex-tools.md), including its per-skill notes, before following this skill.
 
-On GitHub Copilot, read the [platform mapping](../poteto-mode/references/copilot-tools.md), including its per-skill notes, before following this skill. Before anything else, resolve the Copilot home with `bash` (`echo "${COPILOT_HOME:-$HOME/.copilot}"`; file tools expand neither `~` nor variables) and `view` `pstack-models.md` there; if it does not exist, stop, load the `setup-pstack` skill with the `skill` tool and finish it, then follow this skill with the models it saved.
+On GitHub Copilot, read the [platform mapping](../poteto-mode/references/copilot-tools.md), including its per-skill notes, before following this skill. Before anything else, print the sheet's absolute path with `bash` (`echo "${COPILOT_HOME:-$HOME/.copilot}/pstack-models.md"`; file tools expand neither `~` nor variables) and `view` exactly that path; if it does not exist, stop, load the `setup-pstack` skill with the `skill` tool and finish it, then follow this skill with the models it saved.
 
 Design before implementing. Sketch types, function signatures, class shapes, and module boundaries with `not implemented` bodies and pseudocode. Synthesize across multiple model perspectives, then fill in code against the chosen sketch. If implementation proves the sketch wrong, throw it out and redesign.
 

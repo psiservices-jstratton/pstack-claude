@@ -93,7 +93,7 @@ Tell the user where the override was written, how its model rows load, and wheth
 
 The role lines are the same everywhere. What differs is the sheet path, how the runtime loads it, and how you list models. Detect models with the runtime's own tool and never write a slug you have not seen listed. A runtime whose subagent call has no model parameter still gets the sheet, as the record of the user's choice, and applies it where it can. The `session hook` line applies to the Claude Code, Codex, and GitHub Copilot plugins.
 
-On GitHub Copilot the build ships no default model IDs, so the Claude defaults in [Models](#models) never apply there. A skill that needs a role model and finds no Copilot sheet runs this skill first. Copilot's file tools expand neither `~` nor variables, so resolve the directory with `echo "${COPILOT_HOME:-$HOME/.copilot}"` in `bash` and write the sheet at that absolute path. Once the sheet exists, later runs reuse it and do not ask again.
+On GitHub Copilot the build ships no default model IDs, so the Claude defaults in [Models](#models) never apply there. A skill that needs a role model and finds no Copilot sheet runs this skill first. Copilot's file tools expand neither `~` nor variables, so print the sheet's absolute path with `echo "${COPILOT_HOME:-$HOME/.copilot}/pstack-models.md"` in `bash`, create its directory if it is missing, and write exactly that path. Once the sheet exists, later runs reuse it and do not ask again.
 
 | Runtime | Sheet | Load | List models | Status |
 | --- | --- | --- | --- | --- |

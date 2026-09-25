@@ -40,7 +40,7 @@ poteto-mode's Subagents section sets Claude-specific defaults (`subagent_type: "
 Skills name Claude Code model aliases in their Models sections. Those aliases are not Copilot model IDs, and the Copilot build ships no default model IDs: the models an account can reach depend on its plan and policy, so the user picks them once.
 
 - The model sheet is `${COPILOT_HOME:-~/.copilot}/pstack-models.md`. Read it with `view` before any dispatch that needs a role model. A role line there names the model for that role.
-- `view`, `create`, and `edit` take literal paths and expand neither `~` nor `$COPILOT_HOME`. Resolve the directory with `bash` first (`echo "${COPILOT_HOME:-$HOME/.copilot}"`) and read and write the sheet only at that absolute path, so a session with its own `COPILOT_HOME` never touches `~/.copilot`.
+- `view`, `create`, and `edit` take literal paths and expand neither `~` nor `$COPILOT_HOME`. Print the sheet's absolute path with `bash` first (`echo "${COPILOT_HOME:-$HOME/.copilot}/pstack-models.md"`) and read and write exactly that path; do not append `.copilot` or any other segment to it. A session with its own `COPILOT_HOME` then never touches `~/.copilot`.
 - No sheet: before a skill that needs a role model (`poteto-mode`, `how`, `why`, `reflect`, `arena`, `swarm`, `architect`, `interrogate`), run `setup-pstack` first. After that, reuse the saved choices; do not ask again on later runs.
 - A role line in the sheet is the user's explicit model instruction, so pass it as the `task` tool's `model` parameter. A role with no line, or `inherit-parent`/`auto`, omits `model`.
 - Roles that default to the strongest model (`bug-fix`, `perf-issue`, `hillclimb`, `strongest judgment`): the strongest model the user chose.

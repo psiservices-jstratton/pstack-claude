@@ -7,7 +7,7 @@ description: "Spawn N parallel candidates at the same task, pick a base, graft t
 
 On Codex, read the [platform mapping](../poteto-mode/references/codex-tools.md), including its per-skill notes, before following this skill.
 
-On GitHub Copilot, read the [platform mapping](../poteto-mode/references/copilot-tools.md), including its per-skill notes, before following this skill. Before anything else, resolve the Copilot home with `bash` (`echo "${COPILOT_HOME:-$HOME/.copilot}"`; file tools expand neither `~` nor variables) and `view` `pstack-models.md` there; if it does not exist, stop, load the `setup-pstack` skill with the `skill` tool and finish it, then follow this skill with the models it saved.
+On GitHub Copilot, read the [platform mapping](../poteto-mode/references/copilot-tools.md), including its per-skill notes, before following this skill. Before anything else, print the sheet's absolute path with `bash` (`echo "${COPILOT_HOME:-$HOME/.copilot}/pstack-models.md"`; file tools expand neither `~` nor variables) and `view` exactly that path; if it does not exist, stop, load the `setup-pstack` skill with the `skill` tool and finish it, then follow this skill with the models it saved.
 
 Fan out N parallel attempts at the same task. Read every candidate end to end. Pick the strongest as the base. Graft the best ideas from the others into it. Verify the synthesized result.
 

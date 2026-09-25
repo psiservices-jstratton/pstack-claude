@@ -397,8 +397,8 @@ export const COPILOT_POINTER_SKILLS = [
 // their pointer also carries the no-sheet rule where the model reads it first.
 export const COPILOT_SHEET_SKILLS = ["architect", "arena", "how", "interrogate", "reflect", "swarm", "why"];
 export const COPILOT_SHEET_RULE =
-  'Before anything else, resolve the Copilot home with `bash` (`echo "${COPILOT_HOME:-$HOME/.copilot}"`; file tools expand ' +
-  "neither `~` nor variables) and `view` `pstack-models.md` there; if it does not exist, stop, " +
+  'Before anything else, print the sheet\'s absolute path with `bash` (`echo "${COPILOT_HOME:-$HOME/.copilot}/pstack-models.md"`; ' +
+  "file tools expand neither `~` nor variables) and `view` exactly that path; if it does not exist, stop, " +
   "load the `setup-pstack` skill with the `skill` tool and finish it, then follow this skill with the models it saved.";
 const copilotPointer = (skill) =>
   COPILOT_SHEET_SKILLS.includes(skill) ? `${COPILOT_POINTER} ${COPILOT_SHEET_RULE}` : COPILOT_POINTER;
@@ -610,9 +610,10 @@ export function copilotModelNamesSection(models) {
     "and policy, so the user picks them once.\n\n" +
     "- The model sheet is `${COPILOT_HOME:-~/.copilot}/pstack-models.md`. Read it with `view` before any " +
     "dispatch that needs a role model. A role line there names the model for that role.\n" +
-    "- `view`, `create`, and `edit` take literal paths and expand neither `~` nor `$COPILOT_HOME`. Resolve the " +
-    "directory with `bash` first (" + "`echo \"${COPILOT_HOME:-$HOME/.copilot}\"`" + ") and read and write the sheet only " +
-    "at that absolute path, so a session with its own `COPILOT_HOME` never touches `~/.copilot`.\n" +
+    "- `view`, `create`, and `edit` take literal paths and expand neither `~` nor `$COPILOT_HOME`. Print the " +
+    "sheet's absolute path with `bash` first (" + "`echo \"${COPILOT_HOME:-$HOME/.copilot}/pstack-models.md\"`" + ") and read " +
+    "and write exactly that path; do not append `.copilot` or any other segment to it. A session with its own " +
+    "`COPILOT_HOME` then never touches `~/.copilot`.\n" +
     `- No sheet: before a skill that needs a role model (${skills.map(code).join(", ")}), run ` +
     "`setup-pstack` first. After that, " +
     "reuse the saved choices; do not ask again on later runs.\n" +
