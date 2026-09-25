@@ -40,7 +40,7 @@ The generator writes `VERSION` into all three plugin manifests and stamps model 
 
 It also copies the five files in `PORTABLE_ASSETS` into the skills-only installation and removes stale generated files. `NOTICE-skills.md` supplies the notice included with those skills.
 
-The generator rejects missing Markdown links, links outside the skills tree, and instructions to open unreachable files. It checks for stray model names, requires a matching `CHANGES.md` heading, and validates the Codex marketplace and Claude hook paths. It also enforces these rules:
+The generator rejects missing Markdown links, links outside the skills tree, and instructions to open unreachable files. It checks for stray model names, requires a matching `CHANGES.md` heading, and validates the Codex marketplace and Claude hook paths. For GitHub Copilot it stamps the hook's JSON context from `hooks/session-start-context.md` and the Copilot addenda, stamps a Copilot pointer after every Codex pointer, and fails when a Codex pointer has no Copilot twin in `COPILOT_POINTER_SKILLS`. It also enforces these rules:
 
 - No `commands/` directory.
 - No `disable-model-invocation` on a skill.
@@ -49,9 +49,11 @@ The generator rejects missing Markdown links, links outside the skills tree, and
 
 CI reruns the generator and fails if files change, so commit its output.
 
+`tests/copilot-smoke.sh` is a manual install check for GitHub Copilot. It needs a signed-in `copilot` CLI, uses a throwaway `COPILOT_HOME` and `HOME`, spends about six premium requests, and skips when `copilot` is missing. Run it after changing the hook, the Copilot addenda, or `setup-pstack`.
+
 When adding a skill, include `name` and `description` in its frontmatter. Public skills also need a row in the slash-command table. The row supplies the Codex menu description and ordering. The generator reports any skill missing a row or any row without a skill.
 
-Change model defaults in `models.json`, never in a skill body. A role names a tier from `tiers` (`default`, `strongest`, or `panel`), so moving a tier is one edit, and the `codex` block gives the Codex example for each tier. `tests/models.test.mjs` checks the configuration's structure and that skills name every role they use. A full `claude-*` ID or a backticked available name such as `` `fable` `` outside a generated region fails the generator with its file and line.
+Change model defaults in `models.json`, never in a skill body. A role names a tier from `tiers` (`default`, `strongest`, or `panel`), so moving a tier is one edit, the `codex` block gives the Codex example for each tier, and the `copilot` block may leave each tier `null` and its panel empty, because Copilot's reachable models vary by account. `tests/models.test.mjs` checks the configuration's structure and that skills name every role they use. A full `claude-*` ID or a backticked available name such as `` `fable` `` outside a generated region fails the generator with its file and line.
 
 `bun test tests/` covers the generator, the sync tool, the link validator, and `tests/invariants.test.mjs`, which builds fixture trees that must trip each layout invariant. One check is behavioral and lives in `tests/skill-collision-repro.sh`: it needs the `claude` CLI and API access and makes one haiku call to prove a user-typed `/plugin:name` reaches a skill with no `commands/` present. CI cannot run it, so run it locally at least once before a release.
 
@@ -103,4 +105,4 @@ So: any PR that changes skill behavior either bumps the version itself or is fol
 
 ## Reporting bugs
 
-Include the pstack version, the Claude Code (or Codex) version, and the reproduction steps. [#22](https://github.com/michael-denyer/pstack-claude/issues/22) is the model to copy: it named versions, gave numbered steps, and included the experiment that isolated the cause.
+Include the pstack version, the Claude Code (or Codex, or GitHub Copilot) version, and the reproduction steps. [#22](https://github.com/michael-denyer/pstack-claude/issues/22) is the model to copy: it named versions, gave numbered steps, and included the experiment that isolated the cause.
