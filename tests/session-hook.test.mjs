@@ -12,6 +12,7 @@ const sessionStart = JSON.parse(readFileSync(join(pluginRoot, "hooks/hooks.json"
 const command = sessionStart.hooks[0].command;
 const mandate = readFileSync(join(pluginRoot, "hooks/session-start-context.md"), "utf8");
 const copilotContext = readFileSync(join(pluginRoot, "hooks/session-start-context.json"), "utf8");
+const copilotNoSheet = readFileSync(join(pluginRoot, "hooks/session-start-context-nosheet.json"), "utf8");
 const codexManifest = JSON.parse(readFileSync(join(pluginRoot, ".codex-plugin/plugin.json"), "utf8"));
 
 // Codex sets PLUGIN_ROOT; CODEX_HOME is only present when the user has
@@ -20,18 +21,21 @@ const codexManifest = JSON.parse(readFileSync(join(pluginRoot, ".codex-plugin/pl
 // COPILOT_HOME only when the user relocated ~/.copilot.
 const copilotEnv = () => ({ PLUGIN_ROOT: pluginRoot, COPILOT_PLUGIN_ROOT: pluginRoot, COPILOT_CLI: "1" });
 const runtimes = {
-  claude: { sheetDir: ".claude", env: () => ({}), out: mandate },
-  codex: { sheetDir: ".codex", env: () => ({ PLUGIN_ROOT: pluginRoot }), out: mandate },
+  claude: { sheetDir: ".claude", env: () => ({}), out: mandate, noSheet: mandate },
+  codex: { sheetDir: ".codex", env: () => ({ PLUGIN_ROOT: pluginRoot }), out: mandate, noSheet: mandate },
   "codex with CODEX_HOME": {
     sheetDir: "codex-home",
     env: (sheetRoot) => ({ PLUGIN_ROOT: pluginRoot, CODEX_HOME: sheetRoot }),
     out: mandate,
+    noSheet: mandate,
   },
-  copilot: { sheetDir: ".copilot", env: copilotEnv, out: copilotContext },
+  // With no sheet yet, Copilot also gets the setup-first line.
+  copilot: { sheetDir: ".copilot", env: copilotEnv, out: copilotContext, noSheet: copilotNoSheet },
   "copilot with COPILOT_HOME": {
     sheetDir: "copilot-home",
     env: (sheetRoot) => ({ ...copilotEnv(), COPILOT_HOME: sheetRoot }),
     out: copilotContext,
+    noSheet: copilotNoSheet,
   },
 };
 
@@ -65,7 +69,7 @@ describe("SessionStart hook", () => {
   for (const runtime of Object.keys(runtimes)) {
     describe(runtime, () => {
       test("injects the mandate when no sheet exists", () => {
-        expect(runHook(runtime, null)).toEqual({ status: 0, out: runtimes[runtime].out, err: "" });
+        expect(runHook(runtime, null)).toEqual({ status: 0, out: runtimes[runtime].noSheet, err: "" });
       });
 
       test("injects the mandate when the sheet has no session hook line", () => {
@@ -93,14 +97,19 @@ describe("SessionStart hook", () => {
   // Copilot parses the hook's stdout with one JSON.parse and reads
   // additionalContext; plain text is dropped.
   test("Copilot output is one JSON object carrying the mandate and the Copilot addendum", () => {
-    const { out } = runHook("copilot", null);
-    const parsed = JSON.parse(out);
-    expect(Object.keys(parsed)).toEqual(["additionalContext"]);
-    const close = "</EXTREMELY_IMPORTANT>";
-    const body = mandate.slice(0, mandate.indexOf(close));
-    expect(parsed.additionalContext.startsWith(body)).toBe(true);
-    expect(parsed.additionalContext).toContain("On GitHub Copilot, load pstack skills by their bare names");
-    expect(parsed.additionalContext.trimEnd().endsWith(close)).toBe(true);
+    for (const sheet of [null, "session hook: on\n"]) {
+      const { out } = runHook("copilot", sheet);
+      const parsed = JSON.parse(out);
+      expect(Object.keys(parsed)).toEqual(["additionalContext"]);
+      const close = "</EXTREMELY_IMPORTANT>";
+      const body = mandate.slice(0, mandate.indexOf(close));
+      expect(parsed.additionalContext.startsWith(body)).toBe(true);
+      expect(parsed.additionalContext).toContain("On GitHub Copilot, load pstack skills by their bare names");
+      expect(parsed.additionalContext.trimEnd().endsWith(close)).toBe(true);
+      const setupFirst = "This Copilot home has no pstack model sheet yet";
+      if (sheet === null) expect(parsed.additionalContext).toContain(setupFirst);
+      else expect(parsed.additionalContext).not.toContain(setupFirst);
+    }
   });
 
   test("each runtime reads only its own sheet", () => {
@@ -115,7 +124,7 @@ describe("SessionStart hook", () => {
           env: { PATH: process.env.PATH, HOME: home, CLAUDE_PLUGIN_ROOT: pluginRoot, ...env },
           encoding: "utf8",
         }).stdout;
-      expect(run(copilotEnv())).toBe(copilotContext);
+      expect(run(copilotEnv())).toBe(copilotNoSheet);
       rmSync(join(home, ".claude"), { recursive: true });
       rmSync(join(home, ".codex"), { recursive: true });
       mkdirSync(join(home, ".copilot"));

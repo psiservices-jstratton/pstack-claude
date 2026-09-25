@@ -11,6 +11,8 @@ import {
   CODEX_POINTER,
   COPILOT_POINTER,
   COPILOT_POINTER_SKILLS,
+  COPILOT_SHEET_RULE,
+  COPILOT_SHEET_SKILLS,
   copilotSessionContext,
   deriveSkill,
   loadModels,
@@ -101,9 +103,19 @@ describe("Copilot pointers", () => {
     for (const file of markdownFiles(skillsDir)) {
       const lines = readFileSync(file, "utf8").split("\n");
       const codex = lines.flatMap((l, i) => (l === CODEX_POINTER ? [i] : []));
-      const copilot = lines.flatMap((l, i) => (l === COPILOT_POINTER ? [i] : []));
+      const copilot = lines.flatMap((l, i) => (l.startsWith(COPILOT_POINTER) ? [i] : []));
       expect({ file, copilot }).toEqual({ file, copilot: codex.map((i) => i + 2) });
       for (const i of codex) expect(lines[i + 1]).toBe("");
+    }
+  });
+
+  test("skills that dispatch on role models carry the no-sheet rule in their pointer, others do not", () => {
+    expect(COPILOT_SHEET_SKILLS.every((s) => COPILOT_POINTER_SKILLS.includes(s))).toBe(true);
+    expect(COPILOT_SHEET_RULE).toContain("load the `setup-pstack` skill with the `skill` tool");
+    for (const skill of COPILOT_POINTER_SKILLS) {
+      const text = readFileSync(join(skillsDir, skill, "SKILL.md"), "utf8");
+      const want = COPILOT_SHEET_SKILLS.includes(skill) ? `${COPILOT_POINTER} ${COPILOT_SHEET_RULE}` : COPILOT_POINTER;
+      expect({ skill, line: text.split("\n").find((l) => l.startsWith(COPILOT_POINTER)) }).toEqual({ skill, line: want });
     }
   });
 
@@ -161,6 +173,13 @@ describe("Copilot session context", () => {
   test("the committed JSON is the stamp of the mandate and the addendum", () => {
     const committed = readFileSync(join(repoRoot, "plugins/pstack/hooks/session-start-context.json"), "utf8");
     expect(copilotSessionContext(mandate, addendum)).toBe(committed);
+  });
+
+  test("the no-sheet JSON adds only the setup-first paragraph", () => {
+    const noSheet = readFileSync(join(repoRoot, "plugins/pstack/hooks/session-start-copilot-nosheet.md"), "utf8");
+    const committed = readFileSync(join(repoRoot, "plugins/pstack/hooks/session-start-context-nosheet.json"), "utf8");
+    expect(copilotSessionContext(mandate, `${addendum.trim()}\n\n${noSheet}`)).toBe(committed);
+    expect(noSheet).toContain("load `setup-pstack` with the `skill` tool");
   });
 
   test("the addendum lands inside the one closing tag", () => {

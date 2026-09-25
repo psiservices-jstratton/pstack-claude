@@ -13,7 +13,7 @@ pstack skills are written in Claude Code tool language (the `Skill` tool, the `A
 | Search file contents / find files | `grep` / `glob` |
 | Fetch a URL | `web_fetch` |
 | Search the web | `web_search` |
-| Invoke a skill (the `Skill` tool, `/command`, `pstack:<skill>`) | The `skill` tool with the bare skill name (`poteto-mode`, not `pstack:poteto-mode`), or `/<skill>` in the prompt. |
+| Invoke a skill (the `Skill` tool, `/command`, `pstack:<skill>`) | The `skill` tool with the bare skill name (`poteto-mode`, not `pstack:poteto-mode`), or `/<skill>` in the prompt. Copilot's prompt lists only part of a large plugin's skills (a character budget cuts the alphabetical tail); a skill missing from that list still loads by name. |
 | Dispatch a subagent (the `Agent`/`Task` tool) | The `task` tool: `agent_type`, `model`, `mode`, `name`, `prompt`. |
 | Dispatch N parallel subagents in one turn | N `task` calls in one response. |
 | Background subagent (`run_in_background: true`) | `task` with `mode: "background"`; you are notified when it finishes. |
@@ -40,6 +40,7 @@ poteto-mode's Subagents section sets Claude-specific defaults (`subagent_type: "
 Skills name Claude Code model aliases in their Models sections. Those aliases are not Copilot model IDs, and the Copilot build ships no default model IDs: the models an account can reach depend on its plan and policy, so the user picks them once.
 
 - The model sheet is `${COPILOT_HOME:-~/.copilot}/pstack-models.md`. Read it with `view` before any dispatch that needs a role model. A role line there names the model for that role.
+- `view`, `create`, and `edit` take literal paths and expand neither `~` nor `$COPILOT_HOME`. Resolve the directory with `bash` first (`echo "${COPILOT_HOME:-$HOME/.copilot}"`) and read and write the sheet only at that absolute path, so a session with its own `COPILOT_HOME` never touches `~/.copilot`.
 - No sheet: before a skill that needs a role model (`poteto-mode`, `how`, `why`, `reflect`, `arena`, `swarm`, `architect`, `interrogate`), run `setup-pstack` first. After that, reuse the saved choices; do not ask again on later runs.
 - A role line in the sheet is the user's explicit model instruction, so pass it as the `task` tool's `model` parameter. A role with no line, or `inherit-parent`/`auto`, omits `model`.
 - Roles that default to the strongest model (`bug-fix`, `perf-issue`, `hillclimb`, `strongest judgment`): the strongest model the user chose.
@@ -49,7 +50,7 @@ Skills name Claude Code model aliases in their Models sections. Those aliases ar
 
 ## Session routing hook
 
-The plugin's `SessionStart` hook runs on the Copilot CLI and in the Copilot app. Copilot reads the plugin's Claude-format hook file, exports `COPILOT_PLUGIN_ROOT` to the hook, and injects the hook's `additionalContext` JSON, so the hook prints a JSON copy of the routing mandate there. The hook reads `session hook` from `${COPILOT_HOME:-~/.copilot}/pstack-models.md`; `session hook: off` disables injection. The mandate names skills as `pstack:<skill>`; on Copilot load them by bare name.
+The plugin's `SessionStart` hook runs on the Copilot CLI and in the Copilot app. Copilot reads the plugin's Claude-format hook file, exports `COPILOT_PLUGIN_ROOT` to the hook, and injects the hook's `additionalContext` JSON, so the hook prints a JSON copy of the routing mandate there. The hook reads `session hook` from `${COPILOT_HOME:-~/.copilot}/pstack-models.md`; `session hook: off` disables injection. While no sheet exists, the injected context also says so and tells the session to run `setup-pstack` before the first skill that dispatches on role models. The mandate names skills as `pstack:<skill>`; on Copilot load them by bare name.
 
 If the mandate is missing from a session (a skills-only install, a Copilot version that drops plugin hook context, or another plugin's hook replacing it), add the standing instruction `setup-pstack` describes to `~/.copilot/copilot-instructions.md`, or request `poteto-mode` explicitly.
 

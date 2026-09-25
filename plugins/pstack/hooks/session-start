@@ -4,11 +4,13 @@ set -eu
 # Codex exports PLUGIN_ROOT; Claude Code exports only CLAUDE_PLUGIN_ROOT, which
 # Codex also sets as an alias, so PLUGIN_ROOT is the only usable runtime tell.
 # GitHub Copilot exports all three plus COPILOT_PLUGIN_ROOT, and parses stdout
-# as one JSON object, so it gets the generator-stamped JSON copy of the mandate.
+# as one JSON object, so it gets the generator-stamped JSON copy of the mandate,
+# plus a setup-first line when no Copilot sheet exists yet.
 context=session-start-context.md
 if [ -n "${COPILOT_PLUGIN_ROOT:-}" ]; then
   sheet="${COPILOT_HOME:-$HOME/.copilot}/pstack-models.md"
   context=session-start-context.json
+  [ -e "$sheet" ] || context=session-start-context-nosheet.json
 elif [ -n "${PLUGIN_ROOT:-}" ]; then
   sheet="${CODEX_HOME:-$HOME/.codex}/pstack-models.md"
 else

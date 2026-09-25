@@ -23,6 +23,8 @@
 //        and of poteto-mode/references/copilot-tools.md (Copilot ships no slugs)
 //   hooks/session-start-context.md + hooks/session-start-copilot.md
 //     -> hooks/session-start-context.json, the Copilot hook's JSON output
+//   ... + hooks/session-start-copilot-nosheet.md
+//     -> hooks/session-start-context-nosheet.json, its output with no Copilot sheet
 //   COPILOT_POINTER_SKILLS -> a GitHub Copilot pointer after each Codex pointer
 //   plugins/pstack/agents/{poteto-agent,comment-sicko}.md, LICENSE,
 //   LICENSE-cursor-team-kit, and NOTICE-skills.md
@@ -391,6 +393,15 @@ export const COPILOT_POINTER_SKILLS = [
   "teach",
   "why",
 ];
+// Skills that dispatch on role models: on Copilot there are no default slugs, so
+// their pointer also carries the no-sheet rule where the model reads it first.
+export const COPILOT_SHEET_SKILLS = ["architect", "arena", "how", "interrogate", "reflect", "swarm", "why"];
+export const COPILOT_SHEET_RULE =
+  'Before anything else, resolve the Copilot home with `bash` (`echo "${COPILOT_HOME:-$HOME/.copilot}"`; file tools expand ' +
+  "neither `~` nor variables) and `view` `pstack-models.md` there; if it does not exist, stop, " +
+  "load the `setup-pstack` skill with the `skill` tool and finish it, then follow this skill with the models it saved.";
+const copilotPointer = (skill) =>
+  COPILOT_SHEET_SKILLS.includes(skill) ? `${COPILOT_POINTER} ${COPILOT_SHEET_RULE}` : COPILOT_POINTER;
 const POTETO_ADAPTATION = "These skills use Claude Code tool names";
 const POTETO_COPILOT_POINTER =
   "On GitHub Copilot, read [`references/copilot-tools.md`](references/copilot-tools.md) for the Copilot " +
@@ -461,7 +472,7 @@ export function pointerRegions() {
       file: skillFile(skill),
       name: "Copilot pointer",
       locate: afterLine(CODEX_POINTER, "On GitHub Copilot,"),
-      render: () => ["", COPILOT_POINTER],
+      render: () => ["", copilotPointer(skill)],
     })),
     {
       file: skillFile("poteto-mode"),
@@ -599,6 +610,9 @@ export function copilotModelNamesSection(models) {
     "and policy, so the user picks them once.\n\n" +
     "- The model sheet is `${COPILOT_HOME:-~/.copilot}/pstack-models.md`. Read it with `view` before any " +
     "dispatch that needs a role model. A role line there names the model for that role.\n" +
+    "- `view`, `create`, and `edit` take literal paths and expand neither `~` nor `$COPILOT_HOME`. Resolve the " +
+    "directory with `bash` first (" + "`echo \"${COPILOT_HOME:-$HOME/.copilot}\"`" + ") and read and write the sheet only " +
+    "at that absolute path, so a session with its own `COPILOT_HOME` never touches `~/.copilot`.\n" +
     `- No sheet: before a skill that needs a role model (${skills.map(code).join(", ")}), run ` +
     "`setup-pstack` first. After that, " +
     "reuse the saved choices; do not ask again on later runs.\n" +
@@ -791,12 +805,14 @@ function main() {
   validatePluginLayout(pluginRoot);
   console.log("ok: no commands/ directory; plugin agents dispatched by namespaced name");
   const hooksDir = join(pluginRoot, "hooks");
-  const context = copilotSessionContext(
-    readFileSync(join(hooksDir, "session-start-context.md"), "utf8"),
-    readFileSync(join(hooksDir, "session-start-copilot.md"), "utf8"),
-  );
-  if (!stampFile(join(hooksDir, "session-start-context.json"), context, "hooks/session-start-context.json")) {
-    console.log("ok: hooks/session-start-context.json current");
+  const hookText = (name) => readFileSync(join(hooksDir, name), "utf8");
+  const addendum = hookText("session-start-copilot.md");
+  for (const [out, extra] of [
+    ["session-start-context.json", ""],
+    ["session-start-context-nosheet.json", hookText("session-start-copilot-nosheet.md")],
+  ]) {
+    const context = copilotSessionContext(hookText("session-start-context.md"), extra ? `${addendum.trim()}\n\n${extra}` : addendum);
+    if (!stampFile(join(hooksDir, out), context, `hooks/${out}`)) console.log(`ok: hooks/${out} current`);
   }
   validateHooks(readFileSync(join(pluginRoot, "hooks/hooks.json"), "utf8"), {
     statOf: (rel) => (existsSync(join(pluginRoot, rel)) ? statSync(join(pluginRoot, rel)) : null),
