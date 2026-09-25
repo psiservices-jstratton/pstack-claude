@@ -12,6 +12,11 @@
 #      explicit model runs on that model
 #   5. with no model sheet, a multi-model skill runs setup-pstack first
 #   6. setup-pstack writes only model IDs the CLI accepts, with multi-vendor panels
+#   7. without --allow-all-paths, and with the temp dir outside the sandbox, the
+#      saved model choices reach the session with no read of the sheet, and a
+#      plugin playbook loads, with no path-access request at all
+#   8. opt-in, SMOKE_GITHUB=owner/repo@ref: check 7 again on a GitHub
+#      marketplace install under $COPILOT_HOME/installed-plugins (pushed code)
 #
 # Needs the `copilot` CLI signed in, `jq`, and network. Each probe is one
 # short -p session (about 5 premium requests in all with the default model).
@@ -20,6 +25,7 @@
 #   tests/copilot-smoke.sh            # default probe model claude-haiku-4.5
 #   SMOKE_MODEL=gpt-5-mini tests/copilot-smoke.sh
 #   KEEP=1 tests/copilot-smoke.sh     # keep the temp COPILOT_HOME for inspection
+#   SMOKE_GITHUB=psiservices-jstratton/pstack-claude@copilot-build tests/copilot-smoke.sh
 set -euo pipefail
 
 if ! command -v copilot >/dev/null 2>&1; then
@@ -182,6 +188,58 @@ else
     pass "setup-pstack drew each panel from at least two vendors"
   else
     fail "setup-pstack wrote single-vendor panels${mono}"
+  fi
+fi
+
+# 7. Copilot's path sandbox covers only the workspace and the temp dir, and the
+# sheet and plugin sit outside $work. --disallow-temp-dir takes the temp dir out
+# too, so this runs as a real install does; a -p session cannot ask, so any
+# read outside the sandbox would show up as a denied permission request.
+sandboxed() {
+  local label="$1" playbook="$2/skills/poteto-mode/playbooks/bug-fix.md" events reply
+  printf '# pstack models\narena runners: smoke-alpha-1, smoke-beta-2\nsession hook: on\n' >"$home/pstack-models.md"
+  events="$(probe --allow-all-tools --disallow-temp-dir -p 'Answer from your pstack instructions. Reply with two lines. Line 1: "ARENA:" followed by the models the pstack arena runners role uses for me. Line 2: the first line of '"$playbook"', read with the view tool.')"
+  reply="$(cat "$root/last-reply.txt")"
+  if [[ "$reply" == *smoke-alpha-1* && "$reply" == *smoke-beta-2* ]]; then
+    pass "$label: model reports the injected saved choices"
+  else
+    fail "$label: saved choices missing from the reply: $reply"
+  fi
+  if jq -e 'select(.type == "tool.execution_start") | select(.data.arguments | tostring | contains("pstack-models.md"))' "$events" >/dev/null; then
+    fail "$label: a tool call touched the sheet ($events)"
+  else
+    pass "$label: no tool call touched the sheet"
+  fi
+  local view
+  view="$(jq -c 'select(.type == "tool.execution_start" and .data.toolName == "view"
+    and .data.arguments.path == $p) | .data.toolCallId' --arg p "$playbook" "$events" | head -1)"
+  if [ -n "$view" ] && jq -e --argjson id "$view" 'select(.type == "tool.execution_complete" and .data.toolCallId == $id and .data.success == true)' "$events" >/dev/null; then
+    pass "$label: view of the plugin playbook succeeded"
+  else
+    fail "$label: no successful view of the plugin playbook ($events)"
+  fi
+  if jq -e 'select(.type | startswith("permission."))' "$events" >/dev/null; then
+    fail "$label: path access was requested: $(jq -c 'select(.type | startswith("permission.")) | .data' "$events" | head -2)"
+  else
+    pass "$label: no permission request in the session"
+  fi
+}
+sandboxed "local install" "$repo/plugins/pstack"
+
+# 8. The same on a GitHub marketplace install, which Copilot copies under
+# $COPILOT_HOME/installed-plugins. It installs pushed code, not this checkout.
+if [ -n "${SMOKE_GITHUB:-}" ]; then
+  home="$root/github-home"
+  mkdir -p "$home"
+  export COPILOT_HOME="$home"
+  jq -n --arg repo "${SMOKE_GITHUB%@*}" --arg ref "${SMOKE_GITHUB#*@}" \
+    '{extraKnownMarketplaces: {"pstack-claude": {source: {source: "github", repo: $repo, ref: $ref}}}}' >"$home/settings.json"
+  copilot plugin install pstack@pstack-claude >/dev/null 2>&1 || true
+  if [ -e "$home/installed-plugins/pstack-claude/pstack/hooks/pre-tool-use" ]; then
+    pass "GitHub install copied the plugin under installed-plugins"
+    sandboxed "GitHub install" "$home/installed-plugins/pstack-claude/pstack"
+  else
+    fail "GitHub install of $SMOKE_GITHUB left no hooks/pre-tool-use under $home/installed-plugins/pstack-claude/pstack"
   fi
 fi
 
