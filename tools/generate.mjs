@@ -636,13 +636,20 @@ export function copilotModelNamesSection(models) {
     "hook. Do not ask again on later runs.\n" +
     "- A role line in the sheet is the user's explicit model instruction, so pass it as the `task` tool's " +
     "`model` parameter. A role with no line, or `inherit-parent`/`auto`, omits `model`.\n" +
+    "- The plugin's `PreToolUse` hook enforces this for pstack agents. It denies a `task` call whose `agent_type` " +
+    "starts with `pstack:` and whose `model` is not one of the sheet's values, and its reason lists the saved IDs. " +
+    "Retry with the role's saved model; never retry on another unsaved model. It leaves calls with no `model` and " +
+    "other agent types alone.\n" +
     `- Roles that default to the strongest model (${strongest.map((r) => code(r.role)).join(", ")}): ` +
     "the strongest model the user chose.\n" +
     "- Diverse-model panels (`arena`, `architect`, `interrogate`, `how` critics, `reflect`): the adversarial " +
     "signal comes from model diversity, so fill a panel from distinct vendors in the `task` tool's `model` " +
     `list (Claude, GPT, Gemini, Grok, and so on). ${panel} If only one vendor is reachable, vary reasoning ` +
     "effort and note in the verdict that diversity was reduced.\n\n" +
-    "`setup-pstack` lists the models from the `model` enum of the `task` tool and writes only IDs it saw there."
+    "`setup-pstack` lists the models from the `model` enum of the `task` tool and writes only IDs it saw there.\n\n" +
+    "Run `setup-pstack`, and the parent session that orchestrates a panel, on a model at least as strong as " +
+    "gpt-5.4-mini or a Sonnet-class Claude model. On a Haiku-class model, setup picked models the user never " +
+    "chose in about half of the smoke runs."
   );
 }
 

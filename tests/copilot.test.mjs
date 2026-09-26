@@ -235,7 +235,10 @@ describe("Copilot setup questions", () => {
   });
 
   test("every sheet role is written by exactly one tier or panel question", () => {
-    const written = [...sequence.matchAll(/\bwrites ([^.]*)\./g)].flatMap((m) => [...m[1].matchAll(/`([^`]+)`/g)].map((r) => r[1]));
+    const settings = new Set(["panel vendors: any", "session hook"]);
+    const written = [...sequence.matchAll(/\bwrites ([^.]*)\./g)]
+      .flatMap((m) => [...m[1].matchAll(/`([^`]+)`/g)].map((r) => r[1]))
+      .filter((r) => !settings.has(r));
     expect(roles.length).toBe(17);
     expect([...written].sort()).toEqual([...roles].sort());
   });
@@ -257,6 +260,41 @@ describe("Copilot setup questions", () => {
     expect([...at].sort((a, b) => a - b)).toEqual(at);
     expect(sequence).toContain("list the vendors not yet in the panel first");
     expect(sequence).toContain("`Pick the panel again` and `Keep it anyway`");
+  });
+
+  // The PreToolUse hook denies a single-vendor panel unless the sheet opts
+  // out, so every path that keeps one must write the opt-out line.
+  test("keeping a single-vendor panel writes the hook's opt-out line", () => {
+    expect(sequence).toContain("`Keep it anyway` writes the line `panel vendors: any` after the `session hook` line.");
+    expect(sequence).toContain("When only one vendor is detected, skip this question, write `panel vendors: any`");
+    expect(sequence).toContain("not counting `inherit-parent`");
+    expect(readFileSync(join(repoRoot, "plugins/pstack/hooks/sheet.awk"), "utf8")).toContain("/^panel vendors:[ \\t]*any[ \\t\\r]*$/");
+  });
+
+  test("the Copilot sheet header names no single runtime's hook", () => {
+    const header = questions.slice(questions.indexOf("## Sheet header"), questions.indexOf("## Detect models"));
+    expect(header).toContain("`session hook: off` stops the SessionStart hook from injecting");
+    expect(header).toContain("on GitHub Copilot");
+    expect(header).not.toContain("Claude Code or Codex");
+    expect(header).toContain("`panel vendors: any`");
+    expect(skill).toContain("`session hook: off` stops the Claude Code or Codex SessionStart hook");
+  });
+
+  test("the sheet write form is one the hook can check", () => {
+    expect(questions).toContain("cat > '/absolute/path/to/pstack-models.md' <<'EOF'");
+    expect(questions).toContain("Do not route around it with another command.");
+  });
+
+  test("the mapping documents the hook's script approval and its limits", () => {
+    expect(mapping).toContain("`bash` that runs a vendored script in exactly this form");
+    expect(mapping).toContain("Copilot prompts for a bypass whatever a hook answers");
+    expect(mapping).toContain("run `/add-dir <plugin directory>` in the session");
+    expect(mapping).toContain("denies a `task` call whose `agent_type` starts with `pstack:`");
+  });
+
+  test("setup names its model floor", () => {
+    expect(questions).toContain("at least as strong as gpt-5.4-mini or a Sonnet-class Claude model");
+    expect(mapping).toContain("at least as strong as gpt-5.4-mini or a Sonnet-class Claude model");
   });
 
   test("every model question is a short choices list grouped by vendor", () => {

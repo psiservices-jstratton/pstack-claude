@@ -43,10 +43,13 @@ Skills name Claude Code model aliases in their Models sections. Those aliases ar
 - Read the sheet only when that block is missing, as in a skills-only install with no hook. `view`, `create`, and `edit` take literal paths and expand neither `~` nor `$COPILOT_HOME`, so print the sheet's absolute path with `bash` first (`echo "${COPILOT_HOME:-$HOME/.copilot}/pstack-models.md"`) and read and write exactly that path; do not append `.copilot` or any other segment to it. A session with its own `COPILOT_HOME` then never touches `~/.copilot`.
 - No sheet: before a skill that needs a role model (`poteto-mode`, `how`, `why`, `reflect`, `arena`, `swarm`, `architect`, `interrogate`), run `setup-pstack` first. In that same session, use the values it just wrote; later sessions get them from the hook. Do not ask again on later runs.
 - A role line in the sheet is the user's explicit model instruction, so pass it as the `task` tool's `model` parameter. A role with no line, or `inherit-parent`/`auto`, omits `model`.
+- The plugin's `PreToolUse` hook enforces this for pstack agents. It denies a `task` call whose `agent_type` starts with `pstack:` and whose `model` is not one of the sheet's values, and its reason lists the saved IDs. Retry with the role's saved model; never retry on another unsaved model. It leaves calls with no `model` and other agent types alone.
 - Roles that default to the strongest model (`bug-fix`, `perf-issue`, `hillclimb`, `strongest judgment`): the strongest model the user chose.
 - Diverse-model panels (`arena`, `architect`, `interrogate`, `how` critics, `reflect`): the adversarial signal comes from model diversity, so fill a panel from distinct vendors in the `task` tool's `model` list (Claude, GPT, Gemini, Grok, and so on). pstack ships no default Copilot panel. If only one vendor is reachable, vary reasoning effort and note in the verdict that diversity was reduced.
 
 `setup-pstack` lists the models from the `model` enum of the `task` tool and writes only IDs it saw there.
+
+Run `setup-pstack`, and the parent session that orchestrates a panel, on a model at least as strong as gpt-5.4-mini or a Sonnet-class Claude model. On a Haiku-class model, setup picked models the user never chose in about half of the smoke runs.
 
 ## Session routing hook
 
@@ -56,7 +59,12 @@ If the mandate is missing from a session (a skills-only install, a Copilot versi
 
 ## Plugin file access
 
-Copilot limits file access to the workspace and the system temporary directory, so reading a playbook, reference, or script from the installed plugin would ask for path access on every session, and a `-p` run without `--allow-all-paths` would deny it. The plugin's `PreToolUse` hook approves `view` calls on paths inside `COPILOT_PLUGIN_ROOT` that have no `.` or `..` segment. Every other call, including `bash` on the plugin's scripts and `grep` or `glob` in its tree, takes the normal permission flow. Where that hook does not run (a skills-only install, or hooks disabled), start the CLI with `--add-dir <plugin directory>` or run `/add-dir <plugin directory>` in the session; a GitHub marketplace install lives under `${COPILOT_HOME:-~/.copilot}/installed-plugins/<marketplace>/pstack`.
+Copilot limits file access to the workspace and the system temporary directory, so reading a playbook, reference, or script from the installed plugin would ask for path access on every session, and a `-p` run without `--allow-all-paths` would deny it. The plugin's `PreToolUse` hook approves two kinds of call.
+
+- `view` of a path inside `COPILOT_PLUGIN_ROOT` that has no `.` or `..` segment.
+- `bash` that runs a vendored script in exactly this form: optionally `node`, `sh`, or `bash`, then the script's absolute path under `COPILOT_PLUGIN_ROOT/skills/<skill>/scripts/`, then arguments. Each argument is a plain word of letters, digits, and `_ . / : = @ % + , -`, or a single-quoted string with no quote inside. No argument climbs with `..`, and an absolute path argument stays in the workspace or the plugin. The command holds none of `; | & $`, a backtick, `< > ( ) \`, a double quote, or a newline. So run a skill's script as `node <skill directory>/scripts/<script> <args>`, with the skill directory's absolute path, one command per call, and no pipe or redirect.
+
+Every other call, including a script run in any other form and `grep` or `glob` in the plugin's tree, takes the normal permission flow. So does a command that asks to bypass the sandbox, because Copilot prompts for a bypass whatever a hook answers. The hook does not approve scripts when the plugin sits inside the workspace, since a session could edit a script and then run it. Where that hook does not run (a skills-only install, or hooks disabled), start the CLI with `--add-dir <plugin directory>` or run `/add-dir <plugin directory>` in the session; a GitHub marketplace install lives under `${COPILOT_HOME:-~/.copilot}/installed-plugins/<marketplace>/pstack`.
 
 ## App and CLI
 

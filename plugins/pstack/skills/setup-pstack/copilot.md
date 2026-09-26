@@ -1,6 +1,8 @@
 # Setup pstack on GitHub Copilot
 
-On GitHub Copilot this file replaces the questions in steps 1, 3, and 4 of [setup-pstack](SKILL.md). Steps 2 and 5 through 8 still apply. pstack ships no Copilot model defaults, so every model in the sheet comes from the user's answers.
+On GitHub Copilot this file replaces the questions in steps 1, 3, and 4 of [setup-pstack](SKILL.md) and the sheet header in step 6. Steps 2, 5, 7, and 8 still apply. pstack ships no Copilot model defaults, so every model in the sheet comes from the user's answers.
+
+Run setup on a model at least as strong as gpt-5.4-mini or a Sonnet-class Claude model. On a Haiku-class model, setup picked models the user never chose in about half of the smoke runs.
 
 ## Asking
 
@@ -14,7 +16,26 @@ Copilot's `ask_user` takes one question per call with a fixed choice list. That 
 
 ## Current state and writing
 
-On Copilot, step 2's saved values are the saved pstack model choices the plugin hook put in context. When the context says this Copilot home has no pstack model sheet yet, there are none. Read the sheet only when neither is in context, as in a skills-only install. Do not test for the sheet or its directory with `bash`. Each such command touches a path outside the workspace and asks for access. `${COPILOT_HOME:-~/.copilot}` exists whenever Copilot runs. Write the sheet in one tool call, `create` for a new sheet or one `bash` heredoc that replaces a saved one, so the write asks for path access at most once.
+On Copilot, step 2's saved values are the saved pstack model choices the plugin hook put in context. When the context says this Copilot home has no pstack model sheet yet, there are none. Read the sheet only when neither is in context, as in a skills-only install. Do not test for the sheet or its directory with `bash`. Each such command touches a path outside the workspace and asks for access. `${COPILOT_HOME:-~/.copilot}` exists whenever Copilot runs. Write the sheet in one tool call, so the write asks for path access at most once. Use `create` for a new sheet. Replace a saved one with a single `bash` heredoc in exactly this form, with the absolute sheet path in single quotes and the sheet text between the lines:
+
+```sh
+cat > '/absolute/path/to/pstack-models.md' <<'EOF'
+# pstack model configuration
+...
+EOF
+```
+
+The plugin's PreToolUse hook checks the sheet text in a `create`, an `edit`, or that heredoc before it runs. It denies a write that drops one of the 17 roles, holds an entry that is not `inherit-parent`, `auto`, or a model ID, or leaves a panel with models from fewer than two vendors without the `panel vendors: any` line. When it denies a write, fix the text its reason names and write the whole sheet again. Do not route around it with another command.
+
+## Sheet header
+
+A Copilot sheet uses step 6's role lines and settings under this header in place of step 6's paragraph, because every role keeps a line and the hook checks that:
+
+```markdown
+# pstack model configuration
+
+Per-role model choices for pstack skills on GitHub Copilot, written by setup-pstack. Every role keeps its line; rerun setup-pstack to change one. A value of `inherit-parent` or `auto` runs that role on the parent session's model (the `task` call omits `model`); an alias entry in a panel list still counts toward that panel's fan-out. `session hook: off` stops the SessionStart hook from injecting the poteto-mode mandate; any other value, or no line, leaves it on. `panel vendors: any` records that the user kept a panel whose models come from one vendor.
+```
 
 ## Detect models
 
@@ -39,7 +60,7 @@ Ask in this order. Each model question is the vendor and model pair above; every
 2. **Strongest model.** "Strongest model: runs bug-fix, perf-issue, hillclimb, and strongest judgment." It writes `bug-fix`, `perf-issue`, `hillclimb`, and `strongest judgment`.
 3. **Panel model 1 of 3**, then **panel model 2 of 3**, then **panel model 3 of 3**, as three separate questions. "Panel model N of 3: panels run one subagent per model, and models from different vendors catch different mistakes." In slots 2 and 3, list the vendors not yet in the panel first, then the rest, then `inherit-parent`. Do not offer a model already in the panel.
 4. **More panel models.** "Add a 4th panel model?" with `Done` as the first choice and `Add a 4th` second. Adding asks one more slot the same way, then asks again for a 5th. Stop offering at 5 models.
-5. **Vendor check.** When every panel model is from one vendor and more than one vendor is detected, ask "The panel is single-vendor (Claude), so its cross-checks share blind spots." with `Pick the panel again` and `Keep it anyway`. Picking again returns to panel model 1. When only one vendor is detected, skip this question and say in step 8 that the panel's diversity is reduced.
+5. **Vendor check.** When the panel's model IDs, not counting `inherit-parent`, all come from one vendor and more than one vendor is detected, ask "The panel is single-vendor (Claude), so its cross-checks share blind spots." with `Pick the panel again` and `Keep it anyway`. Picking again returns to panel model 1. `Keep it anyway` writes the line `panel vendors: any` after the `session hook` line. When only one vendor is detected, skip this question, write `panel vendors: any`, and say in step 8 that the panel's diversity is reduced. A panel of only `inherit-parent` needs no check.
 6. **Overrides.** "Override any individual role?" with `No, write the sheet (Recommended)` first, then one choice per group: `feature, refactoring`, `judgment and prose`, `how explorer and explainer`, `why investigators and synthesizer`, `reflect roles`, `swarm workers`, `bug-fix, perf-issue, hillclimb`, `strongest judgment`, and `a panel role`. Show each group's value in its label, as `swarm workers (<its model ID>)`. A group asks one model as in [Choosing one model](#choosing-one-model), with its value first as `(current)`, and writes that value to every role in the group. `a panel role` first asks which of `arena runners`, `arena cross-judge pool`, `architect runners`, and `interrogate reviewers`, then asks that list's slots as in questions 3 through 5. After each override, ask this question again, until the answer is `No, write the sheet`.
 7. **Session hook.** "Keep the session hook that routes tasks to poteto-mode?" with `On (default)` and `Off`. On a re-run, the saved value comes first as `(current)`.
 
