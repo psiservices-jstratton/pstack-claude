@@ -35,7 +35,9 @@ copilot plugin install pstack@pstack-claude
 
 This installs pstack for the Copilot CLI and the GitHub Copilot app, which share `~/.copilot`. Start a new session afterwards. Copilot ships no default pstack models, so the first skill that needs one runs `setup-pstack` to pick from the models your account lists, and later sessions reuse that choice.
 
-Run `setup-pstack` to change model defaults or turn automatic routing off. The plugin installs the routing hook on Claude Code, Codex, and GitHub Copilot; Codex asks you to trust it through `/hooks` before it runs. In Claude Code, use `/pstack:setup-pstack`.
+The Copilot build is tested on Copilot CLI 1.0.87 through 1.0.89. On 1.0.89 the routing hook's context reaches the session alongside other plugins' session-start context. If a later version keeps only one plugin's context, `setup-pstack` offers a [standing instruction](plugins/pstack/skills/setup-pstack/SKILL.md#7-wire-it-in) for `~/.copilot/copilot-instructions.md` instead.
+
+Run `setup-pstack` to change model defaults or turn automatic routing off. The plugin installs the routing hook on Claude Code, Codex, and GitHub Copilot; Codex asks you to trust it through `/hooks` before it runs. In Claude Code and the Copilot CLI, use `/pstack:setup-pstack`.
 
 For Prime Agent, OpenCode, Gemini CLI, or skills-only installs for any harness, see [shared installation](docs/reference.md#shared-skills-installation).
 

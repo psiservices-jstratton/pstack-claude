@@ -13,7 +13,7 @@ pstack skills are written in Claude Code tool language (the `Skill` tool, the `A
 | Search file contents / find files | `grep` / `glob` |
 | Fetch a URL | `web_fetch` |
 | Search the web | `web_search` |
-| Invoke a skill (the `Skill` tool, `/command`, `pstack:<skill>`) | The `skill` tool with the bare skill name (`poteto-mode`, not `pstack:poteto-mode`), or `/<skill>` in the prompt. Copilot's prompt lists only part of a large plugin's skills (a character budget cuts the alphabetical tail); a skill missing from that list still loads by name. |
+| Invoke a skill (the `Skill` tool, `/command`, `pstack:<skill>`) | The `skill` tool with the bare skill name (`poteto-mode`, not `pstack:poteto-mode`). A user types `/pstack:<skill>` in the CLI prompt; on CLI 1.0.89 a bare `/<skill>` reports an unknown command for a plugin skill. Copilot's prompt lists only part of a large plugin's skills (a character budget cuts the alphabetical tail); a skill missing from that list still loads by name. |
 | Dispatch a subagent (the `Agent`/`Task` tool) | The `task` tool: `agent_type`, `model`, `mode`, `name`, `prompt`. |
 | Dispatch N parallel subagents in one turn | N `task` calls in one response. |
 | Background subagent (`run_in_background: true`) | `task` with `mode: "background"`; you are notified when it finishes. |
