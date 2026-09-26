@@ -71,7 +71,8 @@ def main():
 
     start = time.time()
     last_output = start
-    typed = False
+    typed = 0
+    enters = 0
     trusted = False
     prompt_at = None
     path = None
@@ -112,23 +113,26 @@ def main():
                 os.write(fd, message.encode())
                 time.sleep(0.5)
                 os.write(fd, b"\r")
-                typed = True
+                typed = time.time()
                 debug("typed message")
             if not typed:
                 continue
             if path is None:
                 if resume:
                     path = os.path.join(state, resume, "events.jsonl")
+                    prior = sum(1 for e in read_events(path) if e.get("type") == "user.message")
                 else:
                     found = events_of(state, before)
                     path = found[0] if found else None
-                if path is None:
-                    continue
-                debug("events", path)
-                prior = sum(1 for e in read_events(path) if e.get("type") == "user.message") if resume else 0
-            events = read_events(path)
+            events = read_events(path) if path else []
             users = [i for i, e in enumerate(events) if e.get("type") == "user.message"]
             if len(users) <= prior:
+                # An Enter that lands while the TUI is still loading is dropped.
+                if time.time() - typed > 15 and enters < 4:
+                    os.write(fd, b"\r")
+                    enters += 1
+                    typed = time.time()
+                    debug("pressed Enter again")
                 continue
             tail = events[users[prior]:]
             for e in tail:
@@ -160,8 +164,8 @@ def main():
                         break
         except (ProcessLookupError, ChildProcessError):
             pass
-    if path is None:
-        sys.stderr.write("no session events found; last output: %r\n" % buf[-600:])
+    if path is None or not os.path.exists(path):
+        sys.stderr.write("no session events found; screen tail: %s\n" % ANSI.sub(b"", buf)[-800:].decode("utf8", "replace"))
         sys.exit(1)
     print(path)
 
