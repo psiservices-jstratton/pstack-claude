@@ -1,0 +1,124 @@
+diff --git a/src/invoice.ts b/src/invoice.ts
+index 38e5606..384bf49 100644
+--- a/src/invoice.ts
++++ b/src/invoice.ts
+@@ -1,52 +1,100 @@
++export type InvoiceStatus = "draft" | "sent" | "paid" | "voided" | "refunded";
++
+ export type Invoice = {
+   id: string;
+   customerId: string;
+   cents: number;
+-  sent: boolean;
+-  paid: boolean;
+-  voided: boolean;
+-  refunded: boolean;
++  status: InvoiceStatus;
+   sentAt?: string;
+   paidAt?: string;
+   voidedAt?: string;
+   refundedAt?: string;
+ };
+ 
++type InvoiceEvent = "send" | "pay" | "void" | "refund";
++
++// Maps the current status + event to the status that follows it. A missing
++// entry means the event does not move the invoice out of its current status
++// (e.g. sending an invoice that was already paid before it was sent still
++// leaves it "paid", it just records that it was also sent).
++const transitions: Record<InvoiceStatus, Partial<Record<InvoiceEvent, InvoiceStatus>>> = {
++  draft: { send: "sent", pay: "paid", void: "voided" },
++  sent: { send: "sent", pay: "paid", void: "voided" },
++  paid: { send: "paid", refund: "refunded" },
++  voided: {},
++  refunded: { send: "refunded" },
++};
++
++type TimestampField = "sentAt" | "paidAt" | "voidedAt" | "refundedAt";
++
++function applyEvent(
++  invoice: Invoice,
++  event: InvoiceEvent,
++  timestampField: TimestampField,
++  at: string,
++  guard: (invoice: Invoice) => boolean,
++  errorMessage: string,
++): Invoice {
++  if (!guard(invoice)) throw new Error(errorMessage);
++  if (invoice[timestampField] !== undefined) return invoice;
++  const nextStatus = transitions[invoice.status][event] ?? invoice.status;
++  return { ...invoice, status: nextStatus, [timestampField]: at };
++}
++
+ export function createInvoice(id: string, customerId: string, cents: number): Invoice {
+   if (cents <= 0) throw new Error("invoice total must be positive");
+-  return { id, customerId, cents, sent: false, paid: false, voided: false, refunded: false };
++  return { id, customerId, cents, status: "draft" };
+ }
+ 
+ export function sendInvoice(invoice: Invoice, at: string): Invoice {
+-  if (invoice.voided) throw new Error("cannot send voided invoice");
+-  if (invoice.sent) return invoice;
+-  return { ...invoice, sent: true, sentAt: at };
++  return applyEvent(
++    invoice,
++    "send",
++    "sentAt",
++    at,
++    (inv) => inv.status !== "voided",
++    "cannot send voided invoice",
++  );
+ }
+ 
+ export function payInvoice(invoice: Invoice, at: string): Invoice {
+-  if (invoice.voided) throw new Error("cannot pay voided invoice");
+-  if (invoice.paid) return invoice;
+-  return { ...invoice, paid: true, paidAt: at };
++  return applyEvent(
++    invoice,
++    "pay",
++    "paidAt",
++    at,
++    (inv) => inv.status !== "voided",
++    "cannot pay voided invoice",
++  );
+ }
+ 
+ export function voidInvoice(invoice: Invoice, at: string): Invoice {
+-  if (invoice.paid) throw new Error("cannot void paid invoice");
+-  if (invoice.voided) return invoice;
+-  return { ...invoice, voided: true, voidedAt: at };
++  return applyEvent(
++    invoice,
++    "void",
++    "voidedAt",
++    at,
++    (inv) => inv.paidAt === undefined,
++    "cannot void paid invoice",
++  );
+ }
+ 
+ export function refundInvoice(invoice: Invoice, at: string): Invoice {
+-  if (!invoice.paid) throw new Error("cannot refund unpaid invoice");
+-  if (invoice.refunded) return invoice;
+-  return { ...invoice, refunded: true, refundedAt: at };
++  return applyEvent(
++    invoice,
++    "refund",
++    "refundedAt",
++    at,
++    (inv) => inv.paidAt !== undefined,
++    "cannot refund unpaid invoice",
++  );
+ }
+ 
+ export function invoiceSummary(invoice: Invoice) {
+-  const status = invoice.refunded ? "refunded" : invoice.voided ? "voided" : invoice.paid ? "paid" : invoice.sent ? "sent" : "draft";
+   return {
+     id: invoice.id,
+     customerId: invoice.customerId,
+     cents: invoice.cents,
+-    status,
++    status: invoice.status,
+   };
+ }

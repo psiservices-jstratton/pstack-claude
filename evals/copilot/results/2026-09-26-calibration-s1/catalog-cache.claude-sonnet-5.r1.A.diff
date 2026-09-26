@@ -1,0 +1,116 @@
+diff --git a/src/catalog-cache.ts b/src/catalog-cache.ts
+index 78a06a1..ff7164a 100644
+--- a/src/catalog-cache.ts
++++ b/src/catalog-cache.ts
+@@ -31,12 +31,25 @@ export class CatalogCache {
+     }
+ 
+     const promise = this.fetchItem(id);
++    // Publish the in-flight promise synchronously (before awaiting) so any
++    // concurrent lookups for the same id reuse this single upstream request
++    // instead of each triggering their own fetch (the "thundering herd" bug).
++    const entry: CacheEntry = { expiresAt: Infinity, promise };
++    this.entries.set(id, entry);
++
+     try {
+       const item = await promise;
+-      this.entries.set(id, { expiresAt: this.now() + this.ttlMs, promise });
++      // Only a successful result is cached for ttlMs; the TTL behavior for
++      // hits is unchanged from before.
++      entry.expiresAt = this.now() + this.ttlMs;
+       return item;
+     } catch (error) {
+-      this.entries.set(id, { expiresAt: this.now() + this.ttlMs, promise });
++      // Don't remember failures: remove the entry (unless something newer
++      // already replaced it) so the very next lookup retries the upstream
++      // instead of replaying the same error until the TTL elapses.
++      if (this.entries.get(id) === entry) {
++        this.entries.delete(id);
++      }
+       throw error;
+     }
+   }
+diff --git a/test/catalog-cache.test.ts b/test/catalog-cache.test.ts
+index 92421b7..750431d 100644
+--- a/test/catalog-cache.test.ts
++++ b/test/catalog-cache.test.ts
+@@ -47,3 +47,79 @@ test("getMany keeps input order and ids separate", async () => {
+   assert.deepEqual(results.map((r) => r.id), ["pin", "mug", "pin"]);
+   assert.equal(cache.size, 2);
+ });
++
++test("coalesces concurrent lookups for the same id into a single upstream call", async () => {
++  let calls = 0;
++  let resolveFetch!: (item: CatalogItem) => void;
++  const cache = new CatalogCache({
++    ttlMs: 1000,
++    fetchItem: async (id) => {
++      calls++;
++      return new Promise<CatalogItem>((resolve) => {
++        resolveFetch = resolve;
++      });
++    },
++  });
++
++  const first = cache.getItem("mug");
++  const second = cache.getItem("mug");
++  resolveFetch(item("mug"));
++
++  const [a, b] = await Promise.all([first, second]);
++  assert.equal(calls, 1);
++  assert.equal(a.id, "mug");
++  assert.equal(b.id, "mug");
++});
++
++test("getMany coalesces duplicate ids within the same batch", async () => {
++  let calls = 0;
++  const cache = new CatalogCache({
++    ttlMs: 1000,
++    fetchItem: async (id) => {
++      calls++;
++      return item(id);
++    },
++  });
++
++  await cache.getMany(["pin", "pin", "pin"]);
++  assert.equal(calls, 1);
++});
++
++test("does not cache failures, so the next lookup retries immediately", async () => {
++  let calls = 0;
++  const cache = new CatalogCache({
++    ttlMs: 100_000,
++    fetchItem: async (id) => {
++      calls++;
++      if (calls === 1) throw new Error("upstream outage");
++      return item(id, "recovered");
++    },
++  });
++
++  await assert.rejects(cache.getItem("mug"));
++  const result = await cache.getItem("mug");
++  assert.equal(result.title, "recovered");
++  assert.equal(calls, 2);
++});
++
++test("concurrent lookups during an outage all reject without extra upstream calls", async () => {
++  let calls = 0;
++  let rejectFetch!: (err: Error) => void;
++  const cache = new CatalogCache({
++    ttlMs: 1000,
++    fetchItem: async (id) => {
++      calls++;
++      return new Promise<CatalogItem>((_, reject) => {
++        rejectFetch = reject;
++      });
++    },
++  });
++
++  const first = cache.getItem("mug");
++  const second = cache.getItem("mug");
++  rejectFetch(new Error("upstream outage"));
++
++  await assert.rejects(first);
++  await assert.rejects(second);
++  assert.equal(calls, 1);
++});

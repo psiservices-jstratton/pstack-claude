@@ -1,0 +1,91 @@
+diff --git a/src/cursor.ts b/src/cursor.ts
+index 453f4a0..23cc9e4 100644
+--- a/src/cursor.ts
++++ b/src/cursor.ts
+@@ -1,4 +1,4 @@
+-export type Cursor = { createdAt: string };
++export type Cursor = { createdAt: string; id: string };
+ 
+ export function encodeCursor(cursor: Cursor): string {
+   return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
+@@ -8,7 +8,9 @@ export function decodeCursor(token: string | undefined): Cursor | undefined {
+   if (!token) return undefined;
+   try {
+     const parsed = JSON.parse(Buffer.from(token, "base64url").toString("utf8")) as Partial<Cursor>;
+-    return typeof parsed.createdAt === "string" ? { createdAt: parsed.createdAt } : undefined;
++    return typeof parsed.createdAt === "string" && typeof parsed.id === "string"
++      ? { createdAt: parsed.createdAt, id: parsed.id }
++      : undefined;
+   } catch {
+     return undefined;
+   }
+diff --git a/src/feed.ts b/src/feed.ts
+index 2bd7e4f..4f5f162 100644
+--- a/src/feed.ts
++++ b/src/feed.ts
+@@ -3,7 +3,12 @@ import type { Direction, FeedOptions, Order, OrderPage } from "./types.ts";
+ 
+ function compareByCreatedAt(direction: Direction): (a: Order, b: Order) => number {
+   const multiplier = direction === "asc" ? 1 : -1;
+-  return (a, b) => multiplier * a.createdAt.localeCompare(b.createdAt);
++  return (a, b) => {
++    const byCreatedAt = a.createdAt.localeCompare(b.createdAt);
++    if (byCreatedAt !== 0) return multiplier * byCreatedAt;
++    // id is the stable tie-breaker for orders sharing a timestamp (flash sales).
++    return multiplier * a.id.localeCompare(b.id);
++  };
+ }
+ 
+ function sortedOrders(orders: Order[], options: FeedOptions): Order[] {
+@@ -15,7 +20,9 @@ function sortedOrders(orders: Order[], options: FeedOptions): Order[] {
+ 
+ function startAfterCursor(sorted: Order[], cursor: ReturnType<typeof decodeCursor>, direction: Direction): number {
+   if (!cursor) return 0;
+-  const index = sorted.findIndex((order) => direction === "asc" ? order.createdAt > cursor.createdAt : order.createdAt < cursor.createdAt);
++  const compare = compareByCreatedAt(direction);
++  const cursorOrder = { id: cursor.id, createdAt: cursor.createdAt } as Order;
++  const index = sorted.findIndex((order) => compare(order, cursorOrder) > 0);
+   return index === -1 ? sorted.length : index;
+ }
+ 
+@@ -28,7 +35,7 @@ export function listOrders(orders: Order[], options: FeedOptions): OrderPage {
+   const last = page.at(-1);
+   return {
+     orders: page,
+-    nextCursor: last && sorted.length > start + page.length ? encodeCursor({ createdAt: last.createdAt }) : undefined,
++    nextCursor: last && sorted.length > start + page.length ? encodeCursor({ createdAt: last.createdAt, id: last.id }) : undefined,
+   };
+ }
+ 
+diff --git a/test/feed.test.ts b/test/feed.test.ts
+index cd62b35..8c239cc 100644
+--- a/test/feed.test.ts
++++ b/test/feed.test.ts
+@@ -29,3 +29,27 @@ test("supports descending order", () => {
+ test("can filter by status", () => {
+   assert.deepEqual(collectAllOrders(orders, { limit: 1, status: "paid" }).map((order) => order.id), ["ord-1", "ord-3"]);
+ });
++
++const flashSaleOrders: Order[] = [
++  { id: "ord-a", createdAt: "2026-04-01T10:00:00.000Z", totalCents: 1000, status: "paid" },
++  { id: "ord-b", createdAt: "2026-04-01T10:00:00.000Z", totalCents: 2000, status: "paid" },
++  { id: "ord-c", createdAt: "2026-04-01T10:00:00.000Z", totalCents: 3000, status: "paid" },
++  { id: "ord-d", createdAt: "2026-04-01T10:00:00.000Z", totalCents: 4000, status: "paid" },
++];
++
++test("does not skip or duplicate orders sharing a timestamp when a page splits the tie group (asc)", () => {
++  const all = collectAllOrders(flashSaleOrders, { limit: 2 });
++  assert.deepEqual(all.map((order) => order.id), ["ord-a", "ord-b", "ord-c", "ord-d"]);
++});
++
++test("does not skip or duplicate orders sharing a timestamp when a page splits the tie group (desc)", () => {
++  const all = collectAllOrders(flashSaleOrders, { limit: 2, direction: "desc" });
++  assert.deepEqual(all.map((order) => order.id), ["ord-d", "ord-c", "ord-b", "ord-a"]);
++});
++
++test("cursor resumes exactly after the last returned order, even mid-tie-group", () => {
++  const first = listOrders(flashSaleOrders, { limit: 1 });
++  assert.deepEqual(first.orders.map((order) => order.id), ["ord-a"]);
++  const second = listOrders(flashSaleOrders, { limit: 1, cursor: first.nextCursor });
++  assert.deepEqual(second.orders.map((order) => order.id), ["ord-b"]);
++});

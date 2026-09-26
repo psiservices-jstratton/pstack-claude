@@ -1,0 +1,89 @@
+diff --git a/src/diff.ts b/src/diff.ts
+index f498deb..5c9a5ee 100644
+--- a/src/diff.ts
++++ b/src/diff.ts
+@@ -1,61 +1,49 @@
+ import { normalizeLocation, normalizeSku, reportSku, sortKeys, type ItemKey } from "./normalize.ts";
+ import type { InventoryChange, StockRow } from "./types.ts";
+ 
+-function keyFor(row: StockRow): ItemKey {
+-  return { sku: reportSku(row.sku), location: normalizeLocation(row.location) };
+-}
+-
+-function sameKey(a: ItemKey, b: ItemKey): boolean {
+-  return normalizeSku(a.sku) === normalizeSku(b.sku) && a.location === b.location;
+-}
+-
+-function rowMatches(row: StockRow, key: ItemKey): boolean {
+-  return normalizeSku(row.sku) === normalizeSku(key.sku) && normalizeLocation(row.location) === key.location;
+-}
++type Aggregate = { key: ItemKey; qty: number };
+ 
+-function uniqueKeys(rows: readonly StockRow[]): ItemKey[] {
+-  const keys: ItemKey[] = [];
++function aggregate(rows: readonly StockRow[]): Map<string, Aggregate> {
++  const totals = new Map<string, Aggregate>();
+   for (const row of rows) {
+-    const key = keyFor(row);
+-    if (!keys.some((existing) => sameKey(existing, key))) keys.push(key);
++    const location = normalizeLocation(row.location);
++    const id = `${normalizeSku(row.sku)}\u0000${location}`;
++    const existing = totals.get(id);
++    if (existing) {
++      existing.qty += row.qty;
++    } else {
++      totals.set(id, { key: { sku: reportSku(row.sku), location }, qty: row.qty });
++    }
+   }
+-  return keys.sort(sortKeys);
+-}
+-
+-function hasKey(keys: readonly ItemKey[], key: ItemKey): boolean {
+-  return keys.some((existing) => sameKey(existing, key));
++  return totals;
+ }
+ 
+-function quantityFor(rows: readonly StockRow[], key: ItemKey): number {
+-  let total = 0;
+-  for (const row of rows) {
+-    if (rowMatches(row, key)) total += row.qty;
+-  }
+-  return total;
++function sortedEntries(totals: Map<string, Aggregate>): [string, Aggregate][] {
++  return [...totals.entries()].sort((a, b) => sortKeys(a[1].key, b[1].key));
+ }
+ 
+ export function diffInventory(before: readonly StockRow[], after: readonly StockRow[]): InventoryChange[] {
+-  const beforeKeys = uniqueKeys(before);
+-  const afterKeys = uniqueKeys(after);
++  const beforeTotals = aggregate(before);
++  const afterTotals = aggregate(after);
+   const added: InventoryChange[] = [];
+   const changed: InventoryChange[] = [];
+   const removed: InventoryChange[] = [];
+ 
+-  for (const key of afterKeys) {
+-    const afterQty = quantityFor(after, key);
+-    if (!hasKey(beforeKeys, key)) {
++  for (const [id, { key, qty: afterQty }] of sortedEntries(afterTotals)) {
++    const beforeEntry = beforeTotals.get(id);
++    if (!beforeEntry) {
+       added.push({ kind: "added", sku: key.sku, location: key.location, qty: afterQty });
+       continue;
+     }
+-    const beforeQty = quantityFor(before, key);
++    const beforeQty = beforeEntry.qty;
+     if (beforeQty !== afterQty) {
+       changed.push({ kind: "changed", sku: key.sku, location: key.location, beforeQty, afterQty, delta: afterQty - beforeQty });
+     }
+   }
+ 
+-  for (const key of beforeKeys) {
+-    if (!hasKey(afterKeys, key)) {
+-      removed.push({ kind: "removed", sku: key.sku, location: key.location, qty: quantityFor(before, key) });
++  for (const [id, { key, qty }] of sortedEntries(beforeTotals)) {
++    if (!afterTotals.has(id)) {
++      removed.push({ kind: "removed", sku: key.sku, location: key.location, qty });
+     }
+   }
+ 

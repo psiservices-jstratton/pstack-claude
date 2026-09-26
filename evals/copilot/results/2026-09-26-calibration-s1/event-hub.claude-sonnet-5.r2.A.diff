@@ -1,0 +1,39 @@
+diff --git a/src/event-hub.ts b/src/event-hub.ts
+index 5a99500..13f8243 100644
+--- a/src/event-hub.ts
++++ b/src/event-hub.ts
+@@ -32,7 +32,10 @@ export class EventHub<TEvents extends EventPayloads> {
+   emit<K extends keyof TEvents>(event: K, payload: TEvents[K]): void {
+     const list = this.listeners.get(event);
+     if (!list) return;
+-    for (const listener of list) {
++    // Snapshot the listeners before iterating: a listener (e.g. one registered
++    // via `once`) may call `off` during emit, which splices the live array and
++    // would otherwise shift indices and cause later listeners to be skipped.
++    for (const listener of [...list]) {
+       listener(payload as TEvents[keyof TEvents]);
+     }
+   }
+diff --git a/test/event-hub.test.ts b/test/event-hub.test.ts
+index 0d07274..74e852b 100644
+--- a/test/event-hub.test.ts
++++ b/test/event-hub.test.ts
+@@ -38,6 +38,18 @@ test("once runs once", () => {
+   assert.equal(count, 1);
+ });
+ 
++test("a once listener does not cause a later listener to be skipped", () => {
++  const hub = new EventHub<AppEvents>();
++  const calls: string[] = [];
++  hub.once("notice", (message) => calls.push(`once:${message}`));
++  hub.on("notice", (message) => calls.push(`normal:${message}`));
++
++  hub.emit("notice", "first");
++  hub.emit("notice", "second");
++
++  assert.deepEqual(calls, ["once:first", "normal:first", "normal:second"]);
++});
++
+ test("audit and notice helpers attach normal listeners", () => {
+   const hub = new EventHub<AppEvents>();
+   const audit = new AuditTrail();

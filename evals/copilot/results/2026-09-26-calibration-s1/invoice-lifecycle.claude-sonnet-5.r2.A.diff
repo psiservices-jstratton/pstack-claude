@@ -1,0 +1,111 @@
+diff --git a/src/invoice.ts b/src/invoice.ts
+index 38e5606..5f25d35 100644
+--- a/src/invoice.ts
++++ b/src/invoice.ts
+@@ -1,52 +1,87 @@
++export type InvoiceStatus = "draft" | "sent" | "paid" | "voided" | "refunded";
++
+ export type Invoice = {
+   id: string;
+   customerId: string;
+   cents: number;
+-  sent: boolean;
+-  paid: boolean;
+-  voided: boolean;
+-  refunded: boolean;
++  status: InvoiceStatus;
+   sentAt?: string;
+   paidAt?: string;
+   voidedAt?: string;
+   refundedAt?: string;
+ };
+ 
++type Transition = {
++  /** Timestamp field this action records; its presence also makes the action idempotent. */
++  timestampField: "sentAt" | "paidAt" | "voidedAt" | "refundedAt";
++  /** Returns an error message if the invoice's current state forbids this action, otherwise undefined. */
++  guard: (invoice: Invoice) => string | undefined;
++  /** Determines the resulting status once the action is applied. */
++  nextStatus: (current: InvoiceStatus) => InvoiceStatus;
++};
++
++const TRANSITIONS: Record<"send" | "pay" | "void" | "refund", Transition> = {
++  send: {
++    timestampField: "sentAt",
++    guard: (invoice) => (invoice.status === "voided" ? "cannot send voided invoice" : undefined),
++    // Paid/refunded invoices outrank "sent" in the reported status, so sending one of those keeps its status.
++    nextStatus: (current) => (current === "draft" ? "sent" : current),
++  },
++  pay: {
++    timestampField: "paidAt",
++    guard: (invoice) => (invoice.status === "voided" ? "cannot pay voided invoice" : undefined),
++    nextStatus: () => "paid",
++  },
++  void: {
++    timestampField: "voidedAt",
++    guard: (invoice) => (invoice.paidAt ? "cannot void paid invoice" : undefined),
++    nextStatus: () => "voided",
++  },
++  refund: {
++    timestampField: "refundedAt",
++    guard: (invoice) => (invoice.paidAt ? undefined : "cannot refund unpaid invoice"),
++    nextStatus: () => "refunded",
++  },
++};
++
++function applyTransition(action: keyof typeof TRANSITIONS, invoice: Invoice, at: string): Invoice {
++  const transition = TRANSITIONS[action];
++  const error = transition.guard(invoice);
++  if (error) throw new Error(error);
++  if (invoice[transition.timestampField]) return invoice;
++  return {
++    ...invoice,
++    status: transition.nextStatus(invoice.status),
++    [transition.timestampField]: at,
++  };
++}
++
+ export function createInvoice(id: string, customerId: string, cents: number): Invoice {
+   if (cents <= 0) throw new Error("invoice total must be positive");
+-  return { id, customerId, cents, sent: false, paid: false, voided: false, refunded: false };
++  return { id, customerId, cents, status: "draft" };
+ }
+ 
+ export function sendInvoice(invoice: Invoice, at: string): Invoice {
+-  if (invoice.voided) throw new Error("cannot send voided invoice");
+-  if (invoice.sent) return invoice;
+-  return { ...invoice, sent: true, sentAt: at };
++  return applyTransition("send", invoice, at);
+ }
+ 
+ export function payInvoice(invoice: Invoice, at: string): Invoice {
+-  if (invoice.voided) throw new Error("cannot pay voided invoice");
+-  if (invoice.paid) return invoice;
+-  return { ...invoice, paid: true, paidAt: at };
++  return applyTransition("pay", invoice, at);
+ }
+ 
+ export function voidInvoice(invoice: Invoice, at: string): Invoice {
+-  if (invoice.paid) throw new Error("cannot void paid invoice");
+-  if (invoice.voided) return invoice;
+-  return { ...invoice, voided: true, voidedAt: at };
++  return applyTransition("void", invoice, at);
+ }
+ 
+ export function refundInvoice(invoice: Invoice, at: string): Invoice {
+-  if (!invoice.paid) throw new Error("cannot refund unpaid invoice");
+-  if (invoice.refunded) return invoice;
+-  return { ...invoice, refunded: true, refundedAt: at };
++  return applyTransition("refund", invoice, at);
+ }
+ 
+ export function invoiceSummary(invoice: Invoice) {
+-  const status = invoice.refunded ? "refunded" : invoice.voided ? "voided" : invoice.paid ? "paid" : invoice.sent ? "sent" : "draft";
+   return {
+     id: invoice.id,
+     customerId: invoice.customerId,
+     cents: invoice.cents,
+-    status,
++    status: invoice.status,
+   };
+ }

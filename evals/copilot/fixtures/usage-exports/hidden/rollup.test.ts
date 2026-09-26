@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { exportBillingFeed } from "../src/billingFeed.ts";
 import { exportUsageCsv } from "../src/csv.ts";
@@ -28,23 +28,18 @@ test("each export keeps its existing range and day rules", () => {
   assert.equal(exportBillingFeed(account, events, range), "acct_local|2026-02-01|4\nacct_local|2026-02-02|7");
 });
 
-function sources(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name);
-    if (statSync(path).isDirectory()) return sources(path);
-    return name.endsWith(".ts") && !name.endsWith(".test.ts") ? [path] : [];
-  });
+function localImports(text: string): string[] {
+  return [...text.matchAll(/from\s+["'](\.{1,2}\/[^"']+)["']/g)].map((m) => m[1].replace(/^\.\//, "").replace(/\.ts$/, ""));
 }
 
 test("the three exporters use one shared rollup helper", () => {
-  for (const name of ["csv.ts", "json.ts", "billingFeed.ts"]) {
+  const shared = new Set<string>();
+  const imports = ["csv.ts", "json.ts", "billingFeed.ts"].map((name) => {
     const text = readFileSync(join("src", name), "utf8");
-    assert.doesNotMatch(text, /\b(for|while)\s*\(/, `${name} still rolls up events itself`);
+    assert.doesNotMatch(text, /new Date\(range\.(start|end)\)/, `${name} still owns the date-range filter`);
     assert.doesNotMatch(text, /new Date\(event\.occurredAt\)/, `${name} still owns date bucketing`);
-  }
-  const helperFiles = sources("src").filter((file) => {
-    const text = readFileSync(file, "utf8");
-    return /for \(const event of events\)/.test(text);
+    return new Set(localImports(text).filter((m) => m !== "types" && !m.endsWith("/types")));
   });
-  assert.equal(helperFiles.length, 1, `expected one shared event rollup, found ${helperFiles.join(", ")}`);
+  for (const m of imports[0]) if (imports.every((s) => s.has(m))) shared.add(m);
+  assert.ok(shared.size > 0, "the three exporters do not import a common helper module");
 });

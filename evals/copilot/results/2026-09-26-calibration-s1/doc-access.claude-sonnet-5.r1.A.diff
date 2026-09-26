@@ -1,0 +1,135 @@
+diff --git a/src/policy.ts b/src/policy.ts
+new file mode 100644
+index 0000000..ea8944b
+--- /dev/null
++++ b/src/policy.ts
+@@ -0,0 +1,34 @@
++import type { DocumentRecord, User } from "./types.ts";
++
++/**
++ * Result of an access check against a document:
++ * - "allow": the action may proceed.
++ * - "forbidden": the user is known to lack permission (403).
++ * - "not_found": the user should not learn the document exists (404).
++ */
++export type AccessDecision = "allow" | "forbidden" | "not_found";
++
++function isTeamMember(user: User, doc: DocumentRecord): boolean {
++  return user.teamIds.includes(doc.teamId);
++}
++
++export function checkReadAccess(user: User, doc: DocumentRecord): AccessDecision {
++  if (user.role === "admin") return "allow";
++  if (doc.ownerId === user.id) return "allow";
++  if (isTeamMember(user, doc) && (!doc.confidential || user.role === "editor")) return "allow";
++  return "not_found";
++}
++
++export function checkAuditAccess(user: User, doc: DocumentRecord): AccessDecision {
++  if (!isTeamMember(user, doc)) return "not_found";
++  if (user.role !== "auditor") return "forbidden";
++  return "allow";
++}
++
++export function checkUpdateAccess(user: User, doc: DocumentRecord): AccessDecision {
++  if (user.role === "admin") return "allow";
++  if (doc.ownerId === user.id) return "allow";
++  if (!isTeamMember(user, doc)) return "not_found";
++  if (user.role !== "editor") return "forbidden";
++  return "allow";
++}
+diff --git a/src/routes/audit.ts b/src/routes/audit.ts
+index f605bbb..8ba7a94 100644
+--- a/src/routes/audit.ts
++++ b/src/routes/audit.ts
+@@ -1,15 +1,14 @@
++import { checkAuditAccess } from "../policy.ts";
++import { forbidden, notFound } from "../responses.ts";
+ import type { Request, Response, Store } from "../types.ts";
+ 
+ export function readAuditLog(req: Request, store: Store): Response {
+   const doc = store.documents.get(req.params.id);
+-  if (!doc) return { status: 404, body: { error: "not_found" } };
++  if (!doc) return notFound();
+ 
+-  if (!req.user.teamIds.includes(doc.teamId)) {
+-    return { status: 404, body: { error: "not_found" } };
+-  }
+-  if (req.user.role !== "auditor") {
+-    return { status: 403, body: { error: "forbidden" } };
+-  }
++  const decision = checkAuditAccess(req.user, doc);
++  if (decision === "not_found") return notFound();
++  if (decision === "forbidden") return forbidden();
+ 
+   return {
+     status: 200,
+diff --git a/src/routes/read.ts b/src/routes/read.ts
+index 0f3bc26..a12c3a5 100644
+--- a/src/routes/read.ts
++++ b/src/routes/read.ts
+@@ -1,18 +1,13 @@
++import { checkReadAccess } from "../policy.ts";
++import { documentBody, forbidden, notFound } from "../responses.ts";
+ import type { Request, Response, Store } from "../types.ts";
+ 
+ export function readDocument(req: Request, store: Store): Response {
+   const doc = store.documents.get(req.params.id);
+-  if (!doc) return { status: 404, body: { error: "not_found" } };
++  if (!doc) return notFound();
+ 
+-  if (req.user.role === "admin") {
+-    return { status: 200, body: { id: doc.id, title: doc.title, body: doc.body } };
+-  }
+-  if (doc.ownerId === req.user.id) {
+-    return { status: 200, body: { id: doc.id, title: doc.title, body: doc.body } };
+-  }
+-  if (req.user.teamIds.includes(doc.teamId) && (!doc.confidential || req.user.role === "editor")) {
+-    return { status: 200, body: { id: doc.id, title: doc.title, body: doc.body } };
+-  }
+-
+-  return { status: 404, body: { error: "not_found" } };
++  const decision = checkReadAccess(req.user, doc);
++  if (decision === "allow") return documentBody(doc);
++  if (decision === "forbidden") return forbidden();
++  return notFound();
+ }
+diff --git a/src/routes/update.ts b/src/routes/update.ts
+index 8d718d9..9b84e7b 100644
+--- a/src/routes/update.ts
++++ b/src/routes/update.ts
+@@ -1,27 +1,16 @@
++import { checkUpdateAccess } from "../policy.ts";
++import { forbidden, notFound, savedBody } from "../responses.ts";
+ import type { Request, Response, Store } from "../types.ts";
+ 
+ export function updateDocument(req: Request, store: Store): Response {
+   const doc = store.documents.get(req.params.id);
+-  if (!doc) return { status: 404, body: { error: "not_found" } };
++  if (!doc) return notFound();
+ 
+-  if (req.user.role === "admin") {
+-    const updated = { ...doc, ...req.body };
+-    store.documents.set(doc.id, updated);
+-    return { status: 200, body: { id: updated.id, title: updated.title, body: updated.body } };
+-  }
+-  if (doc.ownerId === req.user.id) {
+-    const updated = { ...doc, ...req.body };
+-    store.documents.set(doc.id, updated);
+-    return { status: 200, body: { id: updated.id, title: updated.title, body: updated.body } };
+-  }
+-  if (!req.user.teamIds.includes(doc.teamId)) {
+-    return { status: 404, body: { error: "not_found" } };
+-  }
+-  if (req.user.role !== "editor") {
+-    return { status: 403, body: { error: "forbidden" } };
+-  }
++  const decision = checkUpdateAccess(req.user, doc);
++  if (decision === "forbidden") return forbidden();
++  if (decision === "not_found") return notFound();
+ 
+   const updated = { ...doc, ...req.body };
+   store.documents.set(doc.id, updated);
+-  return { status: 200, body: { id: updated.id, title: updated.title, body: updated.body } };
++  return savedBody(updated);
+ }

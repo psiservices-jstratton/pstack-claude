@@ -1,0 +1,16 @@
+{"t":"session.start","data":{"sessionId":"1ebe815f-0855-47df-b61c-29d58c70274a","version":1,"producer":"copilot-agent","copilotVersion":"1.0.89-4","startTime":"2026-09-26T05:57:47.042Z","selectedModel":"claude-sonnet-5","reasoningEffort":"medium","contextTier":"null","context":"{\"cwd\":\"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-TazVRl/event-hub\",\"gitRoot\":\"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-TazVRl/event-hub\",\"branch\":\"main\",\"headCommit\":\"05db16f7d546dbfda2c4d6be8a2acb42244a37e9\"}","alreadyInUse":false,"remoteSteerable":false}}
+{"t":"tool.execution_start","tool":"bash","args":{"command":"find . -type f -iname \"*event*hub*\" -not -path \"*/node_modules/*\"","description":"Find event hub source files"}}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_start","tool":"view","args":{"path":"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-TazVRl/event-hub/src/event-hub.ts"}}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_start","tool":"view","args":{"path":"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-TazVRl/event-hub/test/event-hub.test.ts"}}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_start","tool":"edit","args":{"path":"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-TazVRl/event-hub/src/event-hub.ts","old_str":"    const list = this.listeners.get(event);\n    if (!list) return;\n    for (const listener of list) {\n      listener(payload as TEvents[keyof TEvents]);\n    }","new_str":"    const list = this.listeners.get(event);\n    if (!list) return;\n    // Snapshot the listeners before iterating: a listener (e.g. one registered\n    // via `once`) may call `off` during emit, which splices the live array and\n    // would otherwise shift indices and cause later listeners to be skip..."}}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_start","tool":"bash","args":{"command":"cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-TazVRl/event-hub && cat package.json | head -20 && node --version","description":"Check package.json and node version"}}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_start","tool":"edit","args":{"path":"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-TazVRl/event-hub/test/event-hub.test.ts","old_str":"test(\"audit and notice helpers attach normal listeners\", () => {","new_str":"test(\"a once listener does not cause a later listener to be skipped\", () => {\n  const hub = new EventHub<AppEvents>();\n  const calls: string[] = [];\n  hub.once(\"notice\", (message) => calls.push(`once:${message}`));\n  hub.on(\"notice\", (message) => calls.push(`normal:${message}`));\n\n  hub.emit(\"notice..."}}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_start","tool":"bash","args":{"command":"cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-TazVRl/event-hub && npm test 2>&1","description":"Run test suite"}}
+{"t":"tool.execution_complete","ok":true}
+{"t":"session.shutdown","data":{"totalPremiumRequests":1,"totalApiDurationMs":22989}}

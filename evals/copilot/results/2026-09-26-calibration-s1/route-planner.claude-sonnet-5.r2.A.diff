@@ -1,0 +1,181 @@
+diff --git a/src/planner.ts b/src/planner.ts
+index 57a107c..9a90ad5 100644
+--- a/src/planner.ts
++++ b/src/planner.ts
+@@ -1,52 +1,144 @@
+-import { allDepots, outgoingRoads, type Road, type Route } from "./graph.ts";
++import type { Road, Route } from "./graph.ts";
+ 
+-type BestRoute = {
++// A path is represented as an immutable singly-linked list (parent pointers)
++// so extending a route during relaxation is O(1) instead of copying an array.
++type PathNode = {
++  depot: string;
+   cost: number;
+   hops: number;
+-  depots: string[];
++  parent: PathNode | null;
+ };
+ 
+ function sequenceKey(depots: readonly string[]): string {
+   return depots.join("\u0000");
+ }
+ 
+-function compareRoute(a: BestRoute, b: BestRoute): number {
+-  if (a.cost !== b.cost) return a.cost - b.cost;
+-  if (a.hops !== b.hops) return a.hops - b.hops;
+-  return sequenceKey(a.depots).localeCompare(sequenceKey(b.depots));
++function toDepots(node: PathNode): string[] {
++  const depots: string[] = [];
++  for (let n: PathNode | null = node; n; n = n.parent) depots.push(n.depot);
++  depots.reverse();
++  return depots;
+ }
+ 
+-export function cheapestRoute(roads: readonly Road[], start: string, goal: string): Route | null {
+-  const unvisited = new Set(allDepots(roads, start, goal));
+-  const best = new Map<string, BestRoute>();
+-  best.set(start, { cost: 0, hops: 0, depots: [start] });
+-
+-  while (unvisited.size > 0) {
+-    let current: string | undefined;
+-    let currentBest: BestRoute | undefined;
+-    for (const depot of unvisited) {
+-      const route = best.get(depot);
+-      if (!route) continue;
+-      if (!currentBest || compareRoute(route, currentBest) < 0) {
+-        current = depot;
+-        currentBest = route;
++// Only invoked to break a (cost, hops) tie, which is rare, so materializing
++// both sequences here does not affect the overall algorithmic complexity.
++function sequenceIsSmaller(a: PathNode, b: PathNode): boolean {
++  return sequenceKey(toDepots(a)).localeCompare(sequenceKey(toDepots(b))) < 0;
++}
++
++// Returns true when `next` should replace `previous` as the best known route
++// to a depot, matching the documented tie-break order: cost, then hops, then
++// lexicographically smallest depot sequence.
++function isBetter(next: PathNode, previous: PathNode | undefined): boolean {
++  if (!previous) return true;
++  if (next.cost !== previous.cost) return next.cost < previous.cost;
++  if (next.hops !== previous.hops) return next.hops < previous.hops;
++  return sequenceIsSmaller(next, previous);
++}
++
++// Binary min-heap ordered by (cost, hops). This is sufficient to guarantee
++// correct extraction order: any predecessor on an optimal (cost, hops) path
++// to a depot strictly precedes it in (cost, hops), so by the time a depot is
++// popped every candidate that could improve it has already been relaxed.
++class MinHeap {
++  private items: PathNode[] = [];
++
++  get size(): number {
++    return this.items.length;
++  }
++
++  push(node: PathNode): void {
++    const items = this.items;
++    items.push(node);
++    let index = items.length - 1;
++    while (index > 0) {
++      const parentIndex = (index - 1) >> 1;
++      if (!this.isLess(index, parentIndex)) break;
++      this.swap(index, parentIndex);
++      index = parentIndex;
++    }
++  }
++
++  pop(): PathNode | undefined {
++    const items = this.items;
++    if (items.length === 0) return undefined;
++    const top = items[0];
++    const last = items.pop()!;
++    if (items.length > 0) {
++      items[0] = last;
++      let index = 0;
++      const length = items.length;
++      for (;;) {
++        const left = index * 2 + 1;
++        const right = left + 1;
++        let smallest = index;
++        if (left < length && this.isLess(left, smallest)) smallest = left;
++        if (right < length && this.isLess(right, smallest)) smallest = right;
++        if (smallest === index) break;
++        this.swap(index, smallest);
++        index = smallest;
+       }
+     }
++    return top;
++  }
++
++  private isLess(i: number, j: number): boolean {
++    const a = this.items[i];
++    const b = this.items[j];
++    if (a.cost !== b.cost) return a.cost < b.cost;
++    return a.hops < b.hops;
++  }
++
++  private swap(i: number, j: number): void {
++    const items = this.items;
++    const tmp = items[i];
++    items[i] = items[j];
++    items[j] = tmp;
++  }
++}
++
++export function cheapestRoute(roads: readonly Road[], start: string, goal: string): Route | null {
++  const adjacency = new Map<string, Road[]>();
++  for (const road of roads) {
++    let outgoing = adjacency.get(road.from);
++    if (!outgoing) {
++      outgoing = [];
++      adjacency.set(road.from, outgoing);
++    }
++    outgoing.push(road);
++  }
++
++  const best = new Map<string, PathNode>();
++  const finalized = new Set<string>();
++  const heap = new MinHeap();
++
++  const startNode: PathNode = { depot: start, cost: 0, hops: 0, parent: null };
++  best.set(start, startNode);
++  heap.push(startNode);
+ 
+-    if (!current || !currentBest) return null;
+-    if (current === goal) return { depots: currentBest.depots, cost: currentBest.cost };
+-    unvisited.delete(current);
++  while (heap.size > 0) {
++    const current = heap.pop()!;
++    if (finalized.has(current.depot)) continue;
++    if (best.get(current.depot) !== current) continue; // stale entry, superseded
++    finalized.add(current.depot);
+ 
+-    for (const road of outgoingRoads(roads, current)) {
++    if (current.depot === goal) {
++      return { depots: toDepots(current), cost: current.cost };
++    }
++
++    for (const road of adjacency.get(current.depot) ?? []) {
+       if (road.cost < 0) throw new RangeError("Road costs must be non-negative");
+-      if (!unvisited.has(road.to)) continue;
+-      const next: BestRoute = {
+-        cost: currentBest.cost + road.cost,
+-        hops: currentBest.hops + 1,
+-        depots: [...currentBest.depots, road.to],
++      if (finalized.has(road.to)) continue;
++      const next: PathNode = {
++        depot: road.to,
++        cost: current.cost + road.cost,
++        hops: current.hops + 1,
++        parent: current,
+       };
+-      const previous = best.get(road.to);
+-      if (!previous || compareRoute(next, previous) < 0) best.set(road.to, next);
++      if (isBetter(next, best.get(road.to))) {
++        best.set(road.to, next);
++        heap.push(next);
++      }
+     }
+   }
+ 

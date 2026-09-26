@@ -1,0 +1,32 @@
+{"t":"session.start","data":{"sessionId":"ffe68829-96a0-4b1a-982e-193af2654944","version":1,"producer":"copilot-agent","copilotVersion":"1.0.89-4","startTime":"2026-09-26T06:01:02.563Z","selectedModel":"claude-sonnet-5","reasoningEffort":"medium","contextTier":"null","context":"{\"cwd\":\"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-rJAx6O/settings-loader\",\"gitRoot\":\"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-rJAx6O/settings-loader\",\"branch\":\"main\",\"headCommit\":\"e8129e3f0275e03324250e7c04ffdc7c7a7ef5a6\"}","alreadyInUse":false,"remoteSteerable":false}}
+{"t":"tool.execution_start","tool":"glob","args":{"pattern":"**/*"}}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_start","tool":"view","args":{"path":"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-rJAx6O/settings-loader"}}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_start","tool":"view","args":{"path":"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-rJAx6O/settings-loader/src/loader.ts"}}
+{"t":"tool.execution_start","tool":"view","args":{"path":"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-rJAx6O/settings-loader/src/schema.ts"}}
+{"t":"tool.execution_start","tool":"view","args":{"path":"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-rJAx6O/settings-loader/src/merge.ts"}}
+{"t":"tool.execution_start","tool":"view","args":{"path":"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-rJAx6O/settings-loader/src/files.ts"}}
+{"t":"tool.execution_start","tool":"view","args":{"path":"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-rJAx6O/settings-loader/src/index.ts"}}
+{"t":"tool.execution_start","tool":"view","args":{"path":"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-rJAx6O/settings-loader/test/loader.test.ts"}}
+{"t":"tool.execution_start","tool":"view","args":{"path":"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-rJAx6O/settings-loader/README.md"}}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_start","tool":"create","args":{"path":"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-rJAx6O/settings-loader/src/env.ts","file_text":"import { isSchemaObject } from \"./schema.ts\";\nimport type { LeafType, Settings, SettingsSchema } from \"./schema.ts\";\n\nexport type EnvMap = Record<string, string | undefined>;\n\nconst PREFIX = \"APP_\";\n\nfunction coerce(dotted: string, type: LeafType, raw: string): unknown {\n  switch (type) {\n    case \"..."}}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_start","tool":"edit","args":{"path":"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-rJAx6O/settings-loader/src/loader.ts","old_str":"import { readJsonFile } from \"./files.ts\";\nimport { mergeSettings } from \"./merge.ts\";\nimport { defaultSchema, defaultSettings, validateSettings } from \"./schema.ts\";\nimport type { Settings, SettingsSchema } from \"./schema.ts\";\n\nexport type LoadOptions = {\n  path?: string;\n  schema?: SettingsSchema;...","new_str":"import { readEnvSettings } from \"./env.ts\";\nimport type { EnvMap } from \"./env.ts\";\nimport { readJsonFile } from \"./files.ts\";\nimport { mergeSettings } from \"./merge.ts\";\nimport { defaultSchema, defaultSettings, validateSettings } from \"./schema.ts\";\nimport type { Settings, SettingsSchema } from \"./..."}}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_start","tool":"edit","args":{"path":"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-rJAx6O/settings-loader/src/index.ts","old_str":"export { loadSettings, getSetting } from \"./loader.ts\";\nexport { defaultSchema, defaultSettings, validateSettings } from \"./schema.ts\";\nexport type { LoadOptions } from \"./loader.ts\";\nexport type { Settings, SettingsSchema } from \"./schema.ts\";","new_str":"export { loadSettings, getSetting } from \"./loader.ts\";\nexport { defaultSchema, defaultSettings, validateSettings } from \"./schema.ts\";\nexport type { LoadOptions } from \"./loader.ts\";\nexport type { Settings, SettingsSchema } from \"./schema.ts\";\nexport type { EnvMap } from \"./env.ts\";"}}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_start","tool":"edit","args":{"path":"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-rJAx6O/settings-loader/README.md","old_str":"# settings-loader\n\nLoads service settings from defaults plus one JSON file. The schema declares every setting and its expected type, including nested sections.\n\nRun with `npm test` on Node 24.","new_str":"# settings-loader\n\nLoads service settings from defaults plus one JSON file. The schema declares every setting and its expected type, including nested sections.\n\nSettings can also be overridden with environment variables, which take precedence over both defaults and the JSON file. Variables must use ..."}}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_start","tool":"edit","args":{"path":"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-rJAx6O/settings-loader/test/loader.test.ts","old_str":"test(\"rejects settings outside the declared schema\", () => {\n  assert.throws(\n    () => loadSettings({ defaults: { service: { host: \"x\", port: 8080, secure: false, workers: 2 }, db: { host: \"localhost\", port: 5432, ssl: false }, features: { signup: false } } }),\n    /service\\.workers/,\n  );\n});","new_str":"test(\"rejects settings outside the declared schema\", () => {\n  assert.throws(\n    () => loadSettings({ defaults: { service: { host: \"x\", port: 8080, secure: false, workers: 2 }, db: { host: \"localhost\", port: 5432, ssl: false }, features: { signup: false } } }),\n    /service\\.workers/,\n  );\n});\n\ntes..."}}
+{"t":"tool.execution_complete","ok":true}
+{"t":"tool.execution_start","tool":"bash","args":{"command":"cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-rJAx6O/settings-loader && npm test 2>&1 | tail -60","description":"Run tests"}}
+{"t":"tool.execution_complete","ok":true}
+{"t":"session.shutdown","data":{"totalPremiumRequests":1,"totalApiDurationMs":51028}}

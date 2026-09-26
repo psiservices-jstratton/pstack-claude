@@ -27,6 +27,7 @@ const { values: flags } = parseArgs({
     out: { type: "string" },
     archive: { type: "string" },
     "no-judge": { type: "boolean", default: false },
+    regrade: { type: "string" },
   },
 });
 
@@ -421,7 +422,7 @@ function report(results, verdict) {
   return [
     `# Copilot A/B run ${stamp}`,
     "",
-    `Arms: A = plain Copilot CLI, B = Copilot CLI with pstack installed. Models: ${models.join(", ")}. Reps: ${reps}. Judge: ${flags["no-judge"] ? "none" : flags["judge-model"]}.`,
+    `Arms: A = plain Copilot CLI, B = Copilot CLI with pstack installed. Models: ${[...new Set(results.map((r) => r.model))].join(", ")}. Reps: ${[...new Set(results.map((r) => r.rep))].sort().join(", ")}. Judge: ${verdict ? verdict.judgeModel : "none"}.`,
     "",
     "## Pass rate per arm",
     "",
@@ -478,7 +479,29 @@ function archive(r) {
   };
 }
 
+// Re-grades archived runs from earlier results directories against the current
+// hidden checks, and merges them into one results.json and report.
+async function regrade() {
+  const loaded = flags.regrade.split(",").filter(Boolean).flatMap((dir) => JSON.parse(readFileSync(join(dir, "results.json"), "utf8")).results);
+  const graded = await pool(loaded, Number(flags.parallel), async (r) => {
+    if (!r.archived) return r;
+    const root = realpathSync(mkdtempSync(join(base, "ws-")));
+    const job = { ...r, root, work: join(repo, r.work), events: r.events && join(repo, r.events), env: { ...process.env, ...gitEnv } };
+    const g = await grade(job);
+    rmSync(root, { recursive: true, force: true });
+    if (job.events) writeFileSync(join(outDir, `${r.task}.${r.model}.r${r.rep}.${r.arm}.events.jsonl`), extract(job.events));
+    writeFileSync(join(outDir, `${r.task}.${r.model}.r${r.rep}.${r.arm}.diff`), g.diff.patch);
+    return { ...r, eventsExtract: relative(repo, join(outDir, `${r.task}.${r.model}.r${r.rep}.${r.arm}.events.jsonl`)), grade: g };
+  });
+  const slim = graded.map(({ grade: g, ...r }) => ({ ...r, grade: g && { ...g, diff: { ...g.diff, patch: undefined } } }));
+  writeFileSync(join(outDir, "results.json"), JSON.stringify({ stamp, regradedFrom: flags.regrade.split(","), results: slim }, null, 2));
+  writeFileSync(join(outDir, "report.md"), report(graded, null));
+  rmSync(base, { recursive: true, force: true });
+  log(`regraded ${graded.length} runs into ${outDir}`);
+}
+
 async function main() {
+  if (flags.regrade) return regrade();
   for (const task of tasks) if (!existsSync(join(fixturesDir, task, "prompt.txt"))) throw new Error(`unknown task ${task}`);
   const pluginDir = arms.includes("B") ? exportPlugin() : null;
   const jobs = [];

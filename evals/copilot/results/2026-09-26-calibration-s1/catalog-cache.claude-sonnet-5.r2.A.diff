@@ -1,0 +1,125 @@
+diff --git a/src/catalog-cache.ts b/src/catalog-cache.ts
+index 78a06a1..dfee68d 100644
+--- a/src/catalog-cache.ts
++++ b/src/catalog-cache.ts
+@@ -16,6 +16,8 @@ export class CatalogCache {
+   private readonly fetchItem: FetchCatalogItem;
+   private readonly now: () => number;
+   private readonly entries = new Map<string, CacheEntry>();
++  // Tracks in-flight fetches so concurrent lookups for the same id share one upstream call.
++  private readonly pending = new Map<string, Promise<CatalogItem>>();
+ 
+   constructor(options: CatalogCacheOptions) {
+     if (options.ttlMs <= 0) throw new RangeError("ttlMs must be positive");
+@@ -24,21 +26,35 @@ export class CatalogCache {
+     this.now = options.now ?? Date.now;
+   }
+ 
+-  async getItem(id: string): Promise<CatalogItem> {
++  getItem(id: string): Promise<CatalogItem> {
+     const cached = this.entries.get(id);
+     if (cached && cached.expiresAt > this.now()) {
+       return cached.promise;
+     }
+ 
+-    const promise = this.fetchItem(id);
+-    try {
+-      const item = await promise;
+-      this.entries.set(id, { expiresAt: this.now() + this.ttlMs, promise });
+-      return item;
+-    } catch (error) {
+-      this.entries.set(id, { expiresAt: this.now() + this.ttlMs, promise });
+-      throw error;
++    const inFlight = this.pending.get(id);
++    if (inFlight) {
++      return inFlight;
+     }
++
++    let promise: Promise<CatalogItem>;
++    const settle = () => {
++      if (this.pending.get(id) === promise) this.pending.delete(id);
++    };
++    promise = this.fetchItem(id).then(
++      (item) => {
++        this.entries.set(id, { expiresAt: this.now() + this.ttlMs, promise });
++        settle();
++        return item;
++      },
++      (error) => {
++        this.entries.set(id, { expiresAt: this.now() + this.ttlMs, promise });
++        settle();
++        throw error;
++      },
++    );
++    this.pending.set(id, promise);
++    return promise;
+   }
+ 
+   async getMany(ids: string[]): Promise<CatalogItem[]> {
+diff --git a/test/catalog-cache.test.ts b/test/catalog-cache.test.ts
+index 92421b7..7463cb2 100644
+--- a/test/catalog-cache.test.ts
++++ b/test/catalog-cache.test.ts
+@@ -41,6 +41,62 @@ test("expired entries are loaded again", async () => {
+   assert.equal((await cache.getItem("tote")).title, "version-2");
+ });
+ 
++test("coalesces concurrent lookups for the same id into one upstream call", async () => {
++  let calls = 0;
++  let resolveFetch: (value: CatalogItem) => void = () => {};
++  const cache = new CatalogCache({
++    ttlMs: 1000,
++    fetchItem: async (id) => {
++      calls++;
++      return new Promise<CatalogItem>((resolve) => {
++        resolveFetch = () => resolve(item(id));
++      });
++    },
++  });
++
++  const first = cache.getItem("mug");
++  const second = cache.getItem("mug");
++  assert.equal(calls, 1);
++  resolveFetch();
++  const [a, b] = await Promise.all([first, second]);
++  assert.equal(a.id, "mug");
++  assert.equal(b.id, "mug");
++});
++
++test("coalesces concurrent lookups that fail, and retries after ttl expires", async () => {
++  let now = 0;
++  let calls = 0;
++  let rejectFetch: (error: Error) => void = () => {};
++  const cache = new CatalogCache({
++    ttlMs: 5,
++    now: () => now,
++    fetchItem: async () => {
++      calls++;
++      return new Promise<CatalogItem>((_resolve, reject) => {
++        rejectFetch = () => reject(new Error("upstream down"));
++      });
++    },
++  });
++
++  const first = cache.getItem("mug").catch((e: Error) => e.message);
++  const second = cache.getItem("mug").catch((e: Error) => e.message);
++  assert.equal(calls, 1);
++  rejectFetch();
++  assert.deepEqual(await Promise.all([first, second]), ["upstream down", "upstream down"]);
++
++  // Still within ttl: cached failure is reused, no new upstream call.
++  now = 3;
++  assert.equal(await cache.getItem("mug").catch((e: Error) => e.message), "upstream down");
++  assert.equal(calls, 1);
++
++  // After ttl expires, it retries upstream.
++  now = 10;
++  const retry = cache.getItem("mug").catch((e: Error) => e.message);
++  assert.equal(calls, 2);
++  rejectFetch();
++  assert.equal(await retry, "upstream down");
++});
++
+ test("getMany keeps input order and ids separate", async () => {
+   const cache = new CatalogCache({ ttlMs: 1000, fetchItem: async (id) => item(id) });
+   const results = await cache.getMany(["pin", "mug", "pin"]);

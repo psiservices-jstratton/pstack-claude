@@ -1,0 +1,51 @@
+diff --git a/src/split.ts b/src/split.ts
+index d278c95..6640925 100644
+--- a/src/split.ts
++++ b/src/split.ts
+@@ -6,8 +6,42 @@ export function splitPayout(amountCents: number, recipients: Recipient[]): Share
+   const weight = totalWeight(recipients);
+   if (weight === 0) return recipients.map((recipient) => ({ recipientId: recipient.id, cents: 0 }));
+ 
+-  return recipients.map((recipient) => ({
+-    recipientId: recipient.id,
+-    cents: Math.round((amountCents * recipient.weight) / weight),
+-  }));
++  // Use BigInt so large cent amounts/weights don't lose precision during
++  // the floor-division below.
++  const amount = BigInt(amountCents);
++  const totalW = BigInt(weight);
++
++  const shares = recipients.map((recipient, index) => {
++    const product = amount * BigInt(recipient.weight);
++    let base = product / totalW;
++    let remainder = product % totalW;
++    // BigInt division truncates toward zero; renormalize to a true floor
++    // division so `remainder` is always in [0, totalW).
++    if (remainder < 0n) {
++      base -= 1n;
++      remainder += totalW;
++    }
++    return { index, recipientId: recipient.id, base, remainder };
++  });
++
++  const sumBase = shares.reduce((sum, share) => sum + share.base, 0n);
++  // Because each base is a floor of the exact share, the shortfall against
++  // the true total is a small non-negative integer smaller than the
++  // recipient count: exactly that many recipients get one extra cent.
++  let leftover = Number(amount - sumBase);
++
++  const byRemainder = shares
++    .slice()
++    .sort((a, b) => (b.remainder > a.remainder ? 1 : b.remainder < a.remainder ? -1 : a.index - b.index));
++
++  for (const share of byRemainder) {
++    if (leftover <= 0) break;
++    share.base += 1n;
++    leftover -= 1;
++  }
++
++  return shares
++    .slice()
++    .sort((a, b) => a.index - b.index)
++    .map((share) => ({ recipientId: share.recipientId, cents: Number(share.base) }));
+ }

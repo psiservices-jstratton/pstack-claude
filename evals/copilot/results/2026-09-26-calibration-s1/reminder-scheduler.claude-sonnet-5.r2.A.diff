@@ -1,0 +1,57 @@
+diff --git a/src/scheduler.ts b/src/scheduler.ts
+index c73b310..a6d8284 100644
+--- a/src/scheduler.ts
++++ b/src/scheduler.ts
+@@ -1,8 +1,6 @@
+ import type { Reminder, ScheduledReminder } from "./types.ts";
+ import { advanceLocalDate, localParts, resolveWallTime } from "./timeZone.ts";
+ 
+-const DAY_MS = 24 * 60 * 60 * 1000;
+-
+ function recurrenceDays(reminder: Reminder): number {
+   return reminder.recurrence === "weekly" ? 7 : 1;
+ }
+@@ -16,11 +14,18 @@ export function nextDelivery(reminder: Reminder, nowIso: string): ScheduledRemin
+   const now = new Date(nowIso);
+ 
+   if (reminder.lastSentAt) {
+-    const elapsed = recurrenceDays(reminder) * DAY_MS;
++    // Advance from the last send by recomputing local wall-clock parts (not a fixed
++    // millisecond offset) so DST transitions in the reminder's time zone don't shift
++    // the delivered local time.
++    const lastSent = new Date(reminder.lastSentAt);
++    const localDate = withReminderTime(
++      reminder,
++      advanceLocalDate(localParts(lastSent, reminder.timeZone), recurrenceDays(reminder)),
++    );
+     return {
+       reminderId: reminder.id,
+       userId: reminder.userId,
+-      deliverAt: new Date(new Date(reminder.lastSentAt).getTime() + elapsed).toISOString(),
++      deliverAt: resolveWallTime(reminder.timeZone, localDate),
+     };
+   }
+ 
+diff --git a/test/scheduler.test.ts b/test/scheduler.test.ts
+index dde34b9..8af268d 100644
+--- a/test/scheduler.test.ts
++++ b/test/scheduler.test.ts
+@@ -33,3 +33,18 @@ test("a zone without seasonal clock changes keeps its UTC time in March", () =>
+   const phoenix = { ...base, timeZone: "America/Phoenix", lastSentAt: "2026-03-07T16:00:00.000Z" };
+   assert.equal(nextDelivery(phoenix, "2026-03-08T01:00:00.000Z")?.deliverAt, "2026-03-08T16:00:00.000Z");
+ });
++
++test("daily reminders keep 9am local time across the spring-forward transition", () => {
++  const daily = { ...base, lastSentAt: "2026-03-07T14:00:00.000Z" }; // 9am EST
++  assert.equal(nextDelivery(daily, "2026-03-07T15:00:00.000Z")?.deliverAt, "2026-03-08T13:00:00.000Z"); // 9am EDT
++});
++
++test("daily reminders keep 9am local time across the fall-back transition", () => {
++  const daily = { ...base, lastSentAt: "2026-10-31T13:00:00.000Z" }; // 9am EDT
++  assert.equal(nextDelivery(daily, "2026-10-31T14:00:00.000Z")?.deliverAt, "2026-11-01T14:00:00.000Z"); // 9am EST
++});
++
++test("weekly reminders keep 9am local time across the spring-forward transition", () => {
++  const weekly = { ...base, recurrence: "weekly" as const, lastSentAt: "2026-03-01T14:00:00.000Z" }; // 9am EST
++  assert.equal(nextDelivery(weekly, "2026-03-02T12:00:00.000Z")?.deliverAt, "2026-03-08T13:00:00.000Z"); // 9am EDT
++});

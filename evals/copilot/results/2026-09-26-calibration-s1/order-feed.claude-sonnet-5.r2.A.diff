@@ -1,0 +1,79 @@
+diff --git a/src/cursor.ts b/src/cursor.ts
+index 453f4a0..23cc9e4 100644
+--- a/src/cursor.ts
++++ b/src/cursor.ts
+@@ -1,4 +1,4 @@
+-export type Cursor = { createdAt: string };
++export type Cursor = { createdAt: string; id: string };
+ 
+ export function encodeCursor(cursor: Cursor): string {
+   return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
+@@ -8,7 +8,9 @@ export function decodeCursor(token: string | undefined): Cursor | undefined {
+   if (!token) return undefined;
+   try {
+     const parsed = JSON.parse(Buffer.from(token, "base64url").toString("utf8")) as Partial<Cursor>;
+-    return typeof parsed.createdAt === "string" ? { createdAt: parsed.createdAt } : undefined;
++    return typeof parsed.createdAt === "string" && typeof parsed.id === "string"
++      ? { createdAt: parsed.createdAt, id: parsed.id }
++      : undefined;
+   } catch {
+     return undefined;
+   }
+diff --git a/src/feed.ts b/src/feed.ts
+index 2bd7e4f..64f790c 100644
+--- a/src/feed.ts
++++ b/src/feed.ts
+@@ -1,9 +1,11 @@
+ import { decodeCursor, encodeCursor } from "./cursor.ts";
+ import type { Direction, FeedOptions, Order, OrderPage } from "./types.ts";
+ 
++// Ties on createdAt are common during flash sales, so break ties by id to get a
++// stable, deterministic total order that pagination can reliably resume from.
+ function compareByCreatedAt(direction: Direction): (a: Order, b: Order) => number {
+   const multiplier = direction === "asc" ? 1 : -1;
+-  return (a, b) => multiplier * a.createdAt.localeCompare(b.createdAt);
++  return (a, b) => multiplier * (a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+ }
+ 
+ function sortedOrders(orders: Order[], options: FeedOptions): Order[] {
+@@ -15,7 +17,10 @@ function sortedOrders(orders: Order[], options: FeedOptions): Order[] {
+ 
+ function startAfterCursor(sorted: Order[], cursor: ReturnType<typeof decodeCursor>, direction: Direction): number {
+   if (!cursor) return 0;
+-  const index = sorted.findIndex((order) => direction === "asc" ? order.createdAt > cursor.createdAt : order.createdAt < cursor.createdAt);
++  const index = sorted.findIndex((order) => {
++    const comparison = order.createdAt.localeCompare(cursor.createdAt) || order.id.localeCompare(cursor.id);
++    return direction === "asc" ? comparison > 0 : comparison < 0;
++  });
+   return index === -1 ? sorted.length : index;
+ }
+ 
+@@ -28,7 +33,7 @@ export function listOrders(orders: Order[], options: FeedOptions): OrderPage {
+   const last = page.at(-1);
+   return {
+     orders: page,
+-    nextCursor: last && sorted.length > start + page.length ? encodeCursor({ createdAt: last.createdAt }) : undefined,
++    nextCursor: last && sorted.length > start + page.length ? encodeCursor({ createdAt: last.createdAt, id: last.id }) : undefined,
+   };
+ }
+ 
+diff --git a/test/feed.test.ts b/test/feed.test.ts
+index cd62b35..0d19f6c 100644
+--- a/test/feed.test.ts
++++ b/test/feed.test.ts
+@@ -29,3 +29,15 @@ test("supports descending order", () => {
+ test("can filter by status", () => {
+   assert.deepEqual(collectAllOrders(orders, { limit: 1, status: "paid" }).map((order) => order.id), ["ord-1", "ord-3"]);
+ });
++
++test("does not drop or duplicate orders sharing a timestamp (flash sale)", () => {
++  const flashSaleOrders: Order[] = [
++    { id: "ord-a", createdAt: "2026-04-01T10:00:00.000Z", totalCents: 1000, status: "paid" },
++    { id: "ord-b", createdAt: "2026-04-01T10:00:00.000Z", totalCents: 1000, status: "paid" },
++    { id: "ord-c", createdAt: "2026-04-01T10:00:00.000Z", totalCents: 1000, status: "paid" },
++    { id: "ord-d", createdAt: "2026-04-01T10:00:00.000Z", totalCents: 1000, status: "paid" },
++    { id: "ord-e", createdAt: "2026-04-01T10:01:00.000Z", totalCents: 1000, status: "paid" },
++  ];
++  const collected = collectAllOrders(flashSaleOrders, { limit: 2 }).map((order) => order.id);
++  assert.deepEqual(collected, ["ord-a", "ord-b", "ord-c", "ord-d", "ord-e"]);
++});

@@ -1,0 +1,140 @@
+diff --git a/src/policy.ts b/src/policy.ts
+new file mode 100644
+index 0000000..1d9cc56
+--- /dev/null
++++ b/src/policy.ts
+@@ -0,0 +1,40 @@
++import { forbidden, notFound } from "./responses.ts";
++import type { DocumentRecord, Response, Store, User } from "./types.ts";
++
++/**
++ * Central access-control policy for documents. Each handler resolves the
++ * document via `resolveDocument` and then asks the relevant `authorize*`
++ * function whether the requesting user may proceed. A `null` return means
++ * "allowed"; otherwise the returned Response must be sent as-is, including
++ * not-found responses used to mask a document's existence from users who
++ * should not know about it.
++ */
++
++export function resolveDocument(id: string, store: Store): DocumentRecord | Response {
++  const doc = store.documents.get(id);
++  return doc ?? notFound();
++}
++
++export function authorizeRead(user: User, doc: DocumentRecord): Response | null {
++  if (user.role === "admin") return null;
++  if (doc.ownerId === user.id) return null;
++  if (user.teamIds.includes(doc.teamId) && (!doc.confidential || user.role === "editor")) return null;
++
++  return notFound();
++}
++
++export function authorizeUpdate(user: User, doc: DocumentRecord): Response | null {
++  if (user.role === "admin") return null;
++  if (doc.ownerId === user.id) return null;
++  if (!user.teamIds.includes(doc.teamId)) return notFound();
++  if (user.role !== "editor") return forbidden();
++
++  return null;
++}
++
++export function authorizeAuditRead(user: User, doc: DocumentRecord): Response | null {
++  if (!user.teamIds.includes(doc.teamId)) return notFound();
++  if (user.role !== "auditor") return forbidden();
++
++  return null;
++}
+diff --git a/src/routes/audit.ts b/src/routes/audit.ts
+index f605bbb..fbae0dc 100644
+--- a/src/routes/audit.ts
++++ b/src/routes/audit.ts
+@@ -1,15 +1,12 @@
++import { authorizeAuditRead, resolveDocument } from "../policy.ts";
+ import type { Request, Response, Store } from "../types.ts";
+ 
+ export function readAuditLog(req: Request, store: Store): Response {
+-  const doc = store.documents.get(req.params.id);
+-  if (!doc) return { status: 404, body: { error: "not_found" } };
++  const doc = resolveDocument(req.params.id, store);
++  if (!("teamId" in doc)) return doc;
+ 
+-  if (!req.user.teamIds.includes(doc.teamId)) {
+-    return { status: 404, body: { error: "not_found" } };
+-  }
+-  if (req.user.role !== "auditor") {
+-    return { status: 403, body: { error: "forbidden" } };
+-  }
++  const denial = authorizeAuditRead(req.user, doc);
++  if (denial) return denial;
+ 
+   return {
+     status: 200,
+diff --git a/src/routes/read.ts b/src/routes/read.ts
+index 0f3bc26..48c12c9 100644
+--- a/src/routes/read.ts
++++ b/src/routes/read.ts
+@@ -1,18 +1,13 @@
++import { authorizeRead, resolveDocument } from "../policy.ts";
++import { documentBody } from "../responses.ts";
+ import type { Request, Response, Store } from "../types.ts";
+ 
+ export function readDocument(req: Request, store: Store): Response {
+-  const doc = store.documents.get(req.params.id);
+-  if (!doc) return { status: 404, body: { error: "not_found" } };
++  const doc = resolveDocument(req.params.id, store);
++  if (!("teamId" in doc)) return doc;
+ 
+-  if (req.user.role === "admin") {
+-    return { status: 200, body: { id: doc.id, title: doc.title, body: doc.body } };
+-  }
+-  if (doc.ownerId === req.user.id) {
+-    return { status: 200, body: { id: doc.id, title: doc.title, body: doc.body } };
+-  }
+-  if (req.user.teamIds.includes(doc.teamId) && (!doc.confidential || req.user.role === "editor")) {
+-    return { status: 200, body: { id: doc.id, title: doc.title, body: doc.body } };
+-  }
++  const denial = authorizeRead(req.user, doc);
++  if (denial) return denial;
+ 
+-  return { status: 404, body: { error: "not_found" } };
++  return documentBody(doc);
+ }
+diff --git a/src/routes/update.ts b/src/routes/update.ts
+index 8d718d9..16d6b14 100644
+--- a/src/routes/update.ts
++++ b/src/routes/update.ts
+@@ -1,27 +1,15 @@
++import { authorizeUpdate, resolveDocument } from "../policy.ts";
++import { savedBody } from "../responses.ts";
+ import type { Request, Response, Store } from "../types.ts";
+ 
+ export function updateDocument(req: Request, store: Store): Response {
+-  const doc = store.documents.get(req.params.id);
+-  if (!doc) return { status: 404, body: { error: "not_found" } };
++  const doc = resolveDocument(req.params.id, store);
++  if (!("teamId" in doc)) return doc;
+ 
+-  if (req.user.role === "admin") {
+-    const updated = { ...doc, ...req.body };
+-    store.documents.set(doc.id, updated);
+-    return { status: 200, body: { id: updated.id, title: updated.title, body: updated.body } };
+-  }
+-  if (doc.ownerId === req.user.id) {
+-    const updated = { ...doc, ...req.body };
+-    store.documents.set(doc.id, updated);
+-    return { status: 200, body: { id: updated.id, title: updated.title, body: updated.body } };
+-  }
+-  if (!req.user.teamIds.includes(doc.teamId)) {
+-    return { status: 404, body: { error: "not_found" } };
+-  }
+-  if (req.user.role !== "editor") {
+-    return { status: 403, body: { error: "forbidden" } };
+-  }
++  const denial = authorizeUpdate(req.user, doc);
++  if (denial) return denial;
+ 
+   const updated = { ...doc, ...req.body };
+   store.documents.set(doc.id, updated);
+-  return { status: 200, body: { id: updated.id, title: updated.title, body: updated.body } };
++  return savedBody(updated);
+ }
