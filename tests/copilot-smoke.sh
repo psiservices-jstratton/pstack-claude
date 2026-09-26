@@ -35,7 +35,7 @@
 #   tests/copilot-smoke.sh            # default probe model claude-haiku-4.5
 #   SMOKE_MODEL=gpt-5-mini tests/copilot-smoke.sh
 #   SMOKE_SETUP_MODELS="gpt-5.4-mini claude-sonnet-5" tests/copilot-smoke.sh   # setup probes 5 and 6, once per model
-#   KEEP=1 tests/copilot-smoke.sh     # keep the temp COPILOT_HOME for inspection
+#   KEEP=1 tests/copilot-smoke.sh     # keep the temp dir; a failed run always keeps it
 #   SMOKE_GITHUB=psiservices-jstratton/pstack-claude@copilot-build tests/copilot-smoke.sh
 set -euo pipefail
 
@@ -57,10 +57,14 @@ work="$root/inventory-service"
 user="$root/user"
 mkdir -p "$home" "$work" "$user"
 cleanup() {
-  if [ "${KEEP:-0}" = 1 ]; then echo "kept: $root"; else rm -rf "$root"; fi
+  if [ "${KEEP:-0}" = 1 ] || [ "${failures:-0}" -gt 0 ]; then echo "kept: $root"; else rm -rf "$root"; fi
 }
 trap cleanup EXIT
 
+# A fresh home offers to install the Copilot app before the first interactive
+# prompt; mark the offer as answered.
+no_app_offer() { printf '{"appTipShown": true, "appInstallNudgeResponded": true}\n' >"$1/config.json"; }
+no_app_offer "$home"
 export COPILOT_HOME="$home" HOME="$user"
 failures=0
 pass() { printf 'ok: %s\n' "$1"; }
@@ -392,6 +396,7 @@ rm -f "$home/pstack-models.md"
 if [ -n "${SMOKE_GITHUB:-}" ]; then
   home="$root/github-home"
   mkdir -p "$home"
+  no_app_offer "$home"
   export COPILOT_HOME="$home"
   jq -n --arg repo "${SMOKE_GITHUB%@*}" --arg ref "${SMOKE_GITHUB#*@}" \
     '{extraKnownMarketplaces: {"pstack-claude": {source: {source: "github", repo: $repo, ref: $ref}}}}' >"$home/settings.json"
@@ -406,7 +411,7 @@ if [ -n "${SMOKE_GITHUB:-}" ]; then
 fi
 
 if [ "$failures" -gt 0 ]; then
-  echo "$failures check(s) failed; rerun with KEEP=1 to inspect $home"
+  echo "$failures check(s) failed"
   exit 1
 fi
 echo "all Copilot smoke checks passed"

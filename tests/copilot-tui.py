@@ -46,8 +46,8 @@ def debug(*parts):
 
 
 def events_of(state, before):
-    fresh = [d for d in os.listdir(state) if d not in before] if os.path.isdir(state) else []
-    return [os.path.join(state, d, "events.jsonl") for d in fresh]
+    fresh = [d for d in os.listdir(state) if d not in before and not d.startswith(".")] if os.path.isdir(state) else []
+    return [p for p in (os.path.join(state, d, "events.jsonl") for d in fresh) if os.path.exists(p)]
 
 
 def read_events(path):
@@ -76,6 +76,7 @@ def main():
     enters = 0
     trusted = False
     declined = False
+    dialog_at = 0
     prompt_at = None
     path = None
     answered = set()
@@ -104,23 +105,23 @@ def main():
                 time.sleep(0.5)
                 os.write(fd, b"\r")
                 trusted = True
+                dialog_at = time.time()
                 debug("trusted folder")
-                buf = b""
-                prompt_at = None
                 continue
             # A fresh home offers to install the Copilot app; Enter would accept.
             if not declined and b"Install it now?" in screen:
                 time.sleep(0.5)
                 os.write(fd, b"n")
                 declined = True
-                buf = b""
-                prompt_at = None
+                dialog_at = time.time()
                 debug("declined the app install offer")
                 continue
             if prompt_at is None and b"? help" in screen:
                 prompt_at = time.time()
                 debug("prompt up")
-            if not typed and prompt_at and time.time() - prompt_at > SETTLE:
+            # The footer is not redrawn after a dialog closes, so wait from the
+            # later of the first prompt and the last dialog.
+            if not typed and prompt_at and time.time() - max(prompt_at, dialog_at) > SETTLE:
                 os.write(fd, message.encode())
                 time.sleep(0.5)
                 os.write(fd, b"\r")
