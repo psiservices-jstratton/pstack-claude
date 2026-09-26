@@ -1,0 +1,1 @@
+Dispatch planning slows to a crawl on regional depot maps with a few thousand depots. Please make `cheapestRoute` fast while preserving the documented route choice exactly: return the lowest total cost, then among ties the fewest hops, then the lexicographically smallest depot sequence; unreachable destinations still return null and zero-cost roads are valid.

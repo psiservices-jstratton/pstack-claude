@@ -1,0 +1,1 @@
+Invoice lifecycle logic is spread across the sent, paid, voided, and refunded booleans. Please replace those exposed flags with one explicit status field and a small state-machine-style implementation, without changing the public functions' behavior. Keep the timestamp fields and existing errors meaningful for callers.

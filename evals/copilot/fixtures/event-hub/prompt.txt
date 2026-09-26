@@ -1,0 +1,1 @@
+Some audit handlers randomly do not run, and it seems to happen when a one-time handler fires on the same event. Please fix the in-process event hub without changing the documented listener ordering behavior.

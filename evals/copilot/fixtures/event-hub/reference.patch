@@ -1,0 +1,13 @@
+diff --git a/src/event-hub.ts b/src/event-hub.ts
+index 5a99500..881d82f 100644
+--- a/src/event-hub.ts
++++ b/src/event-hub.ts
+@@ -32,7 +32,7 @@ export class EventHub<TEvents extends EventPayloads> {
+   emit<K extends keyof TEvents>(event: K, payload: TEvents[K]): void {
+     const list = this.listeners.get(event);
+     if (!list) return;
+-    for (const listener of list) {
++    for (const listener of [...list]) {
+       listener(payload as TEvents[keyof TEvents]);
+     }
+   }

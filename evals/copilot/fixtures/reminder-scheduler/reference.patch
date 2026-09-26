@@ -1,0 +1,102 @@
+diff --git a/src/scheduler.ts b/src/scheduler.ts
+index c73b310..631afbd 100644
+--- a/src/scheduler.ts
++++ b/src/scheduler.ts
+@@ -1,8 +1,6 @@
+ import type { Reminder, ScheduledReminder } from "./types.ts";
+ import { advanceLocalDate, localParts, resolveWallTime } from "./timeZone.ts";
+ 
+-const DAY_MS = 24 * 60 * 60 * 1000;
+-
+ function recurrenceDays(reminder: Reminder): number {
+   return reminder.recurrence === "weekly" ? 7 : 1;
+ }
+@@ -11,24 +9,32 @@ function withReminderTime(reminder: Reminder, parts: ReturnType<typeof localPart
+   return { ...parts, hour: reminder.hour, minute: reminder.minute };
+ }
+ 
++function nextWallTimeAfter(reminder: Reminder, anchorIso: string, now: Date): string {
++  let anchor = localParts(new Date(anchorIso), reminder.timeZone);
++  let localDate = withReminderTime(reminder, advanceLocalDate(anchor, recurrenceDays(reminder)));
++  let deliverAt = resolveWallTime(reminder.timeZone, localDate);
++  while (new Date(deliverAt).getTime() <= now.getTime()) {
++    anchor = localDate;
++    localDate = withReminderTime(reminder, advanceLocalDate(anchor, recurrenceDays(reminder)));
++    deliverAt = resolveWallTime(reminder.timeZone, localDate);
++  }
++  return deliverAt;
++}
++
+ export function nextDelivery(reminder: Reminder, nowIso: string): ScheduledReminder | undefined {
+   if (reminder.paused) return undefined;
+   const now = new Date(nowIso);
++  let deliverAt: string;
+ 
+   if (reminder.lastSentAt) {
+-    const elapsed = recurrenceDays(reminder) * DAY_MS;
+-    return {
+-      reminderId: reminder.id,
+-      userId: reminder.userId,
+-      deliverAt: new Date(new Date(reminder.lastSentAt).getTime() + elapsed).toISOString(),
+-    };
+-  }
+-
+-  let localDate = withReminderTime(reminder, localParts(now, reminder.timeZone));
+-  let deliverAt = resolveWallTime(reminder.timeZone, localDate);
+-  while (new Date(deliverAt).getTime() <= now.getTime()) {
+-    localDate = withReminderTime(reminder, advanceLocalDate(localDate, recurrenceDays(reminder)));
++    deliverAt = nextWallTimeAfter(reminder, reminder.lastSentAt, now);
++  } else {
++    let localDate = withReminderTime(reminder, localParts(now, reminder.timeZone));
+     deliverAt = resolveWallTime(reminder.timeZone, localDate);
++    while (new Date(deliverAt).getTime() <= now.getTime()) {
++      localDate = withReminderTime(reminder, advanceLocalDate(localDate, recurrenceDays(reminder)));
++      deliverAt = resolveWallTime(reminder.timeZone, localDate);
++    }
+   }
+ 
+   return { reminderId: reminder.id, userId: reminder.userId, deliverAt };
+diff --git a/src/timeZone.ts b/src/timeZone.ts
+index d9f2970..6702d48 100644
+--- a/src/timeZone.ts
++++ b/src/timeZone.ts
+@@ -52,20 +52,29 @@ export function advanceLocalDate(parts: Pick<LocalParts, "year" | "month" | "day
+   };
+ }
+ 
++function compareLocal(a: LocalParts, b: LocalParts): number {
++  return (
++    a.year - b.year ||
++    a.month - b.month ||
++    a.day - b.day ||
++    a.hour - b.hour ||
++    a.minute - b.minute
++  );
++}
++
+ export function resolveWallTime(timeZone: string, parts: LocalParts): string {
+   const guess = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute);
+-  for (let offset = -720; offset <= 720; offset++) {
++  let firstLater: Date | undefined;
++  for (let offset = -720; offset <= 2_160; offset++) {
+     const instant = new Date(guess + offset * 60_000);
+     const seen = localParts(instant, timeZone);
+-    if (
+-      seen.year === parts.year &&
+-      seen.month === parts.month &&
+-      seen.day === parts.day &&
+-      seen.hour === parts.hour &&
+-      seen.minute === parts.minute
+-    ) {
+-      return instant.toISOString();
++    const comparison = compareLocal(seen, parts);
++    if (comparison === 0) return instant.toISOString();
++    if (comparison > 0) {
++      firstLater = instant;
++      break;
+     }
+   }
+-  return new Date(guess).toISOString();
++  if (!firstLater) throw new RangeError(`Could not resolve local time in ${timeZone}`);
++  return firstLater.toISOString();
+ }

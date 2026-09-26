@@ -1,0 +1,9 @@
+{
+  "name": "doc-access",
+  "version": "0.6.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}

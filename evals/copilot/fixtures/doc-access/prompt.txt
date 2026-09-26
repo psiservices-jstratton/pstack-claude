@@ -1,0 +1,1 @@
+The document routes each inline their own access checks, and the drift is making reviews risky. Please pull those checks into one policy module that the handlers call. Keep every status code and response body exactly as-is, including not-found responses when a user should not learn whether a document exists.

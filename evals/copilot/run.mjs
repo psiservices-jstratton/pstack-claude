@@ -17,13 +17,15 @@ const { values: flags } = parseArgs({
     tasks: { type: "string", default: readdirSync(fixturesDir).sort().join(",") },
     models: { type: "string", default: "claude-sonnet-5" },
     reps: { type: "string", default: "1" },
+    "rep-start": { type: "string", default: "1" },
     arms: { type: "string", default: "A,B" },
     parallel: { type: "string", default: "4" },
-    "judge-model": { type: "string", default: "gpt-5.5" },
-    panel: { type: "string", default: "gpt-5.5,gemini-3.8-flash" },
+    "judge-model": { type: "string", default: "grok-4.7" },
+    panel: { type: "string", default: "claude-sonnet-5,grok-4.7" },
     "timeout-min": { type: "string", default: "30" },
     seed: { type: "string", default: String(Date.now() % 100000) },
     out: { type: "string" },
+    archive: { type: "string" },
     "no-judge": { type: "boolean", default: false },
   },
 });
@@ -32,9 +34,12 @@ const tasks = flags.tasks.split(",").filter(Boolean);
 const models = flags.models.split(",").filter(Boolean);
 const arms = flags.arms.split(",").filter(Boolean);
 const reps = Number(flags.reps);
+const repStart = Number(flags["rep-start"]);
+const repList = Array.from({ length: reps }, (_, i) => repStart + i);
 const timeoutMs = Number(flags["timeout-min"]) * 60_000;
 const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 const outDir = flags.out ?? join(here, "results", stamp);
+const archiveDir = flags.archive ?? join(here, "archive", stamp);
 mkdirSync(outDir, { recursive: true });
 
 // The candidate-facing root: no harness vocabulary in any path a candidate can see.
@@ -277,7 +282,7 @@ const RUBRIC = [
 async function judge(results) {
   const pairs = [];
   const random = rng(Number(flags.seed));
-  for (const task of tasks) for (const model of models) for (let rep = 1; rep <= reps; rep++) {
+  for (const task of tasks) for (const model of models) for (const rep of repList) {
     const a = results.find((r) => r.task === task && r.model === model && r.rep === rep && r.arm === "A" && r.grade);
     const b = results.find((r) => r.task === task && r.model === model && r.rep === rep && r.arm === "B" && r.grade);
     if (!a || !b) continue;
@@ -343,6 +348,52 @@ function table(rows) {
   return [`| ${head.join(" | ")} |`, `| ${head.map(() => "---").join(" | ")} |`, ...rows.map((r) => `| ${head.map((h) => r[h]).join(" | ")} |`)].join("\n");
 }
 
+// Wilson score interval for a binomial proportion, 95% by default.
+function wilson(k, n, z = 1.96) {
+  if (!n) return [0, 1];
+  const p = k / n;
+  const d = 1 + (z * z) / n;
+  const c = p + (z * z) / (2 * n);
+  const h = z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n));
+  return [(c - h) / d, (c + h) / d];
+}
+
+const passed = (r) => Boolean(r.grade && r.grade.hidden.total > 0 && r.grade.hidden.pass === r.grade.hidden.total);
+const pct = (x) => `${Math.round(x * 100)}%`;
+
+function summary(results) {
+  const groups = new Map();
+  for (const r of results) {
+    const key = `${r.task}|${r.model}|${r.arm}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+  const rate = (rs) => {
+    const k = rs.filter(passed).length;
+    const [lo, hi] = wilson(k, rs.length);
+    return `${k}/${rs.length} (${pct(k / rs.length)}, 95% CI ${pct(lo)} to ${pct(hi)})`;
+  };
+  const perTask = [...groups.values()].map((rs) => ({
+    task: rs[0].task, model: rs[0].model, arm: rs[0].arm,
+    "hidden all-pass": rate(rs),
+    "mean hidden": (rs.reduce((n, r) => n + (r.grade ? r.grade.hidden.pass / Math.max(1, r.grade.hidden.total) : 0), 0) / rs.length).toFixed(2),
+    errors: rs.filter((r) => !r.grade).length,
+  }));
+  const perArm = [...new Set(results.map((r) => `${r.model}|${r.arm}`))].map((key) => {
+    const rs = results.filter((r) => `${r.model}|${r.arm}` === key);
+    const premium = rs.reduce((n, r) => n + (r.grade?.transcript?.premiumRequests ?? 0), 0);
+    return {
+      model: rs[0].model, arm: rs[0].arm, runs: rs.length,
+      "hidden all-pass": rate(rs),
+      "premium requests": premium,
+      "wall s (total)": Math.round(rs.reduce((n, r) => n + (r.wallMs ?? 0), 0) / 1000),
+      "wall s (median)": Math.round([...rs.map((r) => r.wallMs ?? 0)].sort((a, b) => a - b)[Math.floor(rs.length / 2)] / 1000),
+      "routing context": rs.filter((r) => r.grade?.transcript?.routingContext).length,
+    };
+  });
+  return { perTask, perArm };
+}
+
 function report(results, verdict) {
   const rows = results.map((r) => {
     const g = r.grade;
@@ -366,10 +417,19 @@ function report(results, verdict) {
     pair: p.id, task: p.task, "blind order": `1=${p.labels[1]} 2=${p.labels[2]}`, preferred: p.preferred,
     ...Object.fromEntries(RUBRIC.map(([k]) => [`${k} A/B`, `${p.scores.A?.[k] ?? "?"}/${p.scores.B?.[k] ?? "?"}`])),
   }))) : "No judge verdict.";
+  const { perTask, perArm } = summary(results);
   return [
     `# Copilot A/B run ${stamp}`,
     "",
-    `Arms: A = plain Copilot CLI, B = Copilot CLI with pstack installed. Models: ${models.join(", ")}. Reps: ${reps}. Judge: ${flags["judge-model"]}.`,
+    `Arms: A = plain Copilot CLI, B = Copilot CLI with pstack installed. Models: ${models.join(", ")}. Reps: ${reps}. Judge: ${flags["no-judge"] ? "none" : flags["judge-model"]}.`,
+    "",
+    "## Pass rate per arm",
+    "",
+    table(perArm),
+    "",
+    "## Pass rate per task",
+    "",
+    table(perTask),
     "",
     "## Deterministic results",
     "",
@@ -382,11 +442,47 @@ function report(results, verdict) {
   ].join("\n");
 }
 
+// Compact, committable view of one transcript: tool calls with short arguments,
+// skills, subagent dispatches, hook context presence, and usage.
+function extract(eventsPath) {
+  const short = (v) => (typeof v === "string" && v.length > 300 ? `${v.slice(0, 300)}...` : v);
+  const out = [];
+  for (const line of readFileSync(eventsPath, "utf8").split("\n").filter(Boolean)) {
+    const e = JSON.parse(line);
+    const d = e.data ?? {};
+    if (e.type === "tool.execution_start") out.push({ t: e.type, tool: d.toolName, args: Object.fromEntries(Object.entries(d.arguments ?? {}).map(([k, v]) => [k, short(v)])) });
+    else if (e.type === "tool.execution_complete") out.push({ t: e.type, ok: d.success, error: short(d.error?.message) });
+    else if (e.type === "hook.end") out.push({ t: e.type, hook: d.hookType ?? d.hookName, context: typeof d.output?.additionalContext === "string" ? d.output.additionalContext.length : null });
+    else if (/^(skill\.invoked|session\.(start|shutdown|resume)|permission\.(requested|completed)|subagent\.)/.test(e.type)) out.push({ t: e.type, data: e.type === "session.shutdown" ? { totalPremiumRequests: d.totalPremiumRequests, totalApiDurationMs: d.totalApiDurationMs } : Object.fromEntries(Object.entries(d).map(([k, v]) => [k, short(typeof v === "object" ? JSON.stringify(v) : v)])) });
+  }
+  return out.map((o) => JSON.stringify(o)).join("\n") + "\n";
+}
+
+// Keeps each candidate's workdir, reply, and session state under a gitignored
+// archive, and rewrites result paths so results.json resolves against the repo.
+function archive(r) {
+  if (!r.root) return r;
+  const name = `${r.task}.${r.model}.r${r.rep}.${r.arm}`;
+  const dest = join(archiveDir, name);
+  mkdirSync(dest, { recursive: true });
+  if (existsSync(r.work)) cpSync(r.work, join(dest, "work"), { recursive: true, filter: (src) => !src.includes("/node_modules") });
+  if (existsSync(join(r.root, "reply.txt"))) cpSync(join(r.root, "reply.txt"), join(dest, "reply.txt"));
+  if (existsSync(join(r.home, "session-state"))) cpSync(join(r.home, "session-state"), join(dest, "session-state"), { recursive: true });
+  if (r.events) writeFileSync(join(outDir, `${name}.events.jsonl`), extract(r.events));
+  return {
+    ...r, root: undefined, home: undefined,
+    archived: relative(repo, dest),
+    work: relative(repo, join(dest, "work")),
+    events: r.events ? relative(repo, join(dest, "session-state", relative(join(r.home, "session-state"), r.events))) : null,
+    eventsExtract: r.events ? relative(repo, join(outDir, `${name}.events.jsonl`)) : null,
+  };
+}
+
 async function main() {
   for (const task of tasks) if (!existsSync(join(fixturesDir, task, "prompt.txt"))) throw new Error(`unknown task ${task}`);
   const pluginDir = arms.includes("B") ? exportPlugin() : null;
   const jobs = [];
-  for (const task of tasks) for (const model of models) for (let rep = 1; rep <= reps; rep++) for (const arm of arms) {
+  for (const task of tasks) for (const model of models) for (const rep of repList) for (const arm of arms) {
     jobs.push({ id: `${task}/${model}/r${rep}/${arm}`, task, model, rep, arm });
   }
   log(`${jobs.length} runs under ${base}; results in ${relative(process.cwd(), outDir) || outDir}`);
@@ -394,12 +490,12 @@ async function main() {
   const ran = await pool(prepared, Number(flags.parallel), (j) => (j.error ? j : candidate(j)));
   const graded = await pool(ran, Number(flags.parallel), async (j) => (j.error ? j : { ...j, grade: await grade(j) }));
   const verdict = flags["no-judge"] ? null : await judge(graded);
-  const slim = graded.map(({ env, grade: g, ...r }) => ({ ...r, grade: g && { ...g, diff: { ...g.diff, patch: undefined } } }));
+  const slim = graded.map(archive).map(({ env, grade: g, ...r }) => ({ ...r, grade: g && { ...g, diff: { ...g.diff, patch: undefined } } }));
   writeFileSync(join(outDir, "results.json"), JSON.stringify({ stamp, base, flags, results: slim }, null, 2));
   for (const r of graded) if (r.grade) writeFileSync(join(outDir, `${r.task}.${r.model}.r${r.rep}.${r.arm}.diff`), r.grade.diff.patch);
   if (verdict) writeFileSync(join(outDir, "judge.json"), JSON.stringify(verdict, null, 2));
   writeFileSync(join(outDir, "report.md"), report(graded, verdict));
-  log(`wrote ${outDir}; candidate workdirs and transcripts stay under ${base} until you delete it`);
+  log(`wrote ${outDir}; workdirs and transcripts archived under ${archiveDir}; the temp root ${base} can be deleted`);
 }
 
 main().catch((error) => { console.error(error); process.exit(1); });

@@ -1,0 +1,59 @@
+diff --git a/src/help.ts b/src/help.ts
+index 7b2996e..7cb5c47 100644
+--- a/src/help.ts
++++ b/src/help.ts
+@@ -10,12 +10,42 @@ function flagLabel(flag: Flag): string {
+   return cyan(flag.name);
+ }
+ 
++function wrapWords(text: string, width: number): string[] {
++  if (width <= 0) return [text];
++  const words = text.split(/\s+/).filter(Boolean);
++  const lines: string[] = [];
++  let current = "";
++
++  for (const word of words) {
++    if (!current) {
++      current = word;
++      continue;
++    }
++    if (current.length + 1 + word.length <= width) {
++      current = `${current} ${word}`;
++      continue;
++    }
++    lines.push(current);
++    current = word;
++  }
++  if (current) lines.push(current);
++  return lines.length ? lines : [""];
++}
++
++function descriptionLines(prefix: string, continuationPrefix: string, description: string, width: number | undefined): string[] {
++  if (!width || visibleLength(prefix) + description.length <= width) return [`${prefix}${description}`];
++  const available = width - visibleLength(continuationPrefix);
++  return wrapWords(description, available).map((line, index) => `${index === 0 ? prefix : continuationPrefix}${line}`);
++}
++
+ export function formatHelp(commands: Command[] = defaultCommands, options: HelpOptions = {}): string {
+   const program = options.program ?? "notes";
+   const lines = [`Usage: ${program} <command> [options]`, "", "Commands:"];
+   const commandWidth = maxLength(commands.map((command) => command.name), 7);
+   for (const command of commands) {
+-    lines.push(`  ${padVisible(command.name, commandWidth)}  ${command.summary}`);
++    const prefix = `  ${padVisible(command.name, commandWidth)}  `;
++    const continuation = " ".repeat(visibleLength(prefix));
++    lines.push(...descriptionLines(prefix, continuation, command.summary, options.width));
+   }
+ 
+   const flags = commands.flatMap((command) => command.flags ?? []);
+@@ -23,7 +53,9 @@ export function formatHelp(commands: Command[] = defaultCommands, options: HelpO
+     lines.push("", "Flags:");
+     const flagWidth = maxLength(flags.map((flag) => flag.name), 6);
+     for (const flag of flags) {
+-      lines.push(`  ${padVisible(flagLabel(flag), flagWidth)}  ${flag.description}`);
++      const prefix = `  ${padVisible(flagLabel(flag), flagWidth)}  `;
++      const continuation = " ".repeat(visibleLength(prefix));
++      lines.push(...descriptionLines(prefix, continuation, flag.description, options.width));
+     }
+   }
+   return `${lines.join("\n")}\n`;

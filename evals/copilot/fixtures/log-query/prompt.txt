@@ -1,0 +1,1 @@
+The support log search is timing out on large exports with several search terms. Please make `queryLogLines` fast without changing matching: terms are case-insensitive literal text, a result must contain every term, and matching lines must come back in the same order including repeated identical lines.

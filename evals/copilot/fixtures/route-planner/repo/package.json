@@ -1,0 +1,9 @@
+{
+  "name": "route-planner",
+  "version": "0.8.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}

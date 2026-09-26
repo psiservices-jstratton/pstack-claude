@@ -1,0 +1,37 @@
+diff --git a/src/dedupe.ts b/src/dedupe.ts
+index efa7bf0..4941982 100644
+--- a/src/dedupe.ts
++++ b/src/dedupe.ts
+@@ -9,17 +9,26 @@ export type Contact = {
+ 
+ // A contact is a duplicate when its email or its phone matches a contact we
+ // already kept. The first occurrence wins. Blank fields never match.
++//
++// Instead of scanning every previously-kept contact for each new contact
++// (O(n^2), which is what made 50k-row imports hang), we track the set of
++// normalized emails/phones already kept. Membership in those sets is
++// equivalent to "matches some kept contact", since normalization is a pure
++// function of the field alone, giving the exact same first-occurrence
++// results in O(n) time.
+ export function dedupeContacts(contacts: Contact[]): Contact[] {
+   const kept: Contact[] = [];
++  const seenEmails = new Set<string>();
++  const seenPhones = new Set<string>();
+   for (const contact of contacts) {
+     const email = normalizeEmail(contact.email);
+     const phone = normalizePhone(contact.phone);
+-    const duplicate = kept.some((other) => {
+-      const sameEmail = email !== "" && normalizeEmail(other.email) === email;
+-      const samePhone = phone !== "" && normalizePhone(other.phone) === phone;
+-      return sameEmail || samePhone;
+-    });
+-    if (!duplicate) kept.push(contact);
++    const duplicate = (email !== "" && seenEmails.has(email)) || (phone !== "" && seenPhones.has(phone));
++    if (!duplicate) {
++      kept.push(contact);
++      if (email !== "") seenEmails.add(email);
++      if (phone !== "") seenPhones.add(phone);
++    }
+   }
+   return kept;
+ }

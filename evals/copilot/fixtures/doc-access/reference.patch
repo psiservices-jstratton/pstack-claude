@@ -1,0 +1,115 @@
+diff --git a/src/policy.ts b/src/policy.ts
+new file mode 100644
+index 0000000..09fe50c
+--- /dev/null
++++ b/src/policy.ts
+@@ -0,0 +1,24 @@
++import type { DocumentRecord, User } from "./types.ts";
++
++export type Access = "allow" | "not-found" | "forbidden";
++
++export function readAccess(user: User, doc: DocumentRecord): Access {
++  if (user.role === "admin") return "allow";
++  if (doc.ownerId === user.id) return "allow";
++  if (user.teamIds.includes(doc.teamId) && (!doc.confidential || user.role === "editor")) return "allow";
++  return "not-found";
++}
++
++export function updateAccess(user: User, doc: DocumentRecord): Access {
++  if (user.role === "admin") return "allow";
++  if (doc.ownerId === user.id) return "allow";
++  if (!user.teamIds.includes(doc.teamId)) return "not-found";
++  if (user.role !== "editor") return "forbidden";
++  return "allow";
++}
++
++export function auditAccess(user: User, doc: DocumentRecord): Access {
++  if (!user.teamIds.includes(doc.teamId)) return "not-found";
++  if (user.role !== "auditor") return "forbidden";
++  return "allow";
++}
+diff --git a/src/routes/audit.ts b/src/routes/audit.ts
+index f605bbb..c5ae264 100644
+--- a/src/routes/audit.ts
++++ b/src/routes/audit.ts
+@@ -1,15 +1,13 @@
++import { auditAccess } from "../policy.ts";
+ import type { Request, Response, Store } from "../types.ts";
+ 
+ export function readAuditLog(req: Request, store: Store): Response {
+   const doc = store.documents.get(req.params.id);
+   if (!doc) return { status: 404, body: { error: "not_found" } };
+ 
+-  if (!req.user.teamIds.includes(doc.teamId)) {
+-    return { status: 404, body: { error: "not_found" } };
+-  }
+-  if (req.user.role !== "auditor") {
+-    return { status: 403, body: { error: "forbidden" } };
+-  }
++  const access = auditAccess(req.user, doc);
++  if (access === "not-found") return { status: 404, body: { error: "not_found" } };
++  if (access === "forbidden") return { status: 403, body: { error: "forbidden" } };
+ 
+   return {
+     status: 200,
+diff --git a/src/routes/read.ts b/src/routes/read.ts
+index 0f3bc26..d776be6 100644
+--- a/src/routes/read.ts
++++ b/src/routes/read.ts
+@@ -1,18 +1,12 @@
++import { readAccess } from "../policy.ts";
+ import type { Request, Response, Store } from "../types.ts";
+ 
+ export function readDocument(req: Request, store: Store): Response {
+   const doc = store.documents.get(req.params.id);
+   if (!doc) return { status: 404, body: { error: "not_found" } };
+ 
+-  if (req.user.role === "admin") {
+-    return { status: 200, body: { id: doc.id, title: doc.title, body: doc.body } };
+-  }
+-  if (doc.ownerId === req.user.id) {
+-    return { status: 200, body: { id: doc.id, title: doc.title, body: doc.body } };
+-  }
+-  if (req.user.teamIds.includes(doc.teamId) && (!doc.confidential || req.user.role === "editor")) {
+-    return { status: 200, body: { id: doc.id, title: doc.title, body: doc.body } };
+-  }
++  const access = readAccess(req.user, doc);
++  if (access !== "allow") return { status: 404, body: { error: "not_found" } };
+ 
+-  return { status: 404, body: { error: "not_found" } };
++  return { status: 200, body: { id: doc.id, title: doc.title, body: doc.body } };
+ }
+diff --git a/src/routes/update.ts b/src/routes/update.ts
+index 8d718d9..6b45614 100644
+--- a/src/routes/update.ts
++++ b/src/routes/update.ts
+@@ -1,25 +1,13 @@
++import { updateAccess } from "../policy.ts";
+ import type { Request, Response, Store } from "../types.ts";
+ 
+ export function updateDocument(req: Request, store: Store): Response {
+   const doc = store.documents.get(req.params.id);
+   if (!doc) return { status: 404, body: { error: "not_found" } };
+ 
+-  if (req.user.role === "admin") {
+-    const updated = { ...doc, ...req.body };
+-    store.documents.set(doc.id, updated);
+-    return { status: 200, body: { id: updated.id, title: updated.title, body: updated.body } };
+-  }
+-  if (doc.ownerId === req.user.id) {
+-    const updated = { ...doc, ...req.body };
+-    store.documents.set(doc.id, updated);
+-    return { status: 200, body: { id: updated.id, title: updated.title, body: updated.body } };
+-  }
+-  if (!req.user.teamIds.includes(doc.teamId)) {
+-    return { status: 404, body: { error: "not_found" } };
+-  }
+-  if (req.user.role !== "editor") {
+-    return { status: 403, body: { error: "forbidden" } };
+-  }
++  const access = updateAccess(req.user, doc);
++  if (access === "not-found") return { status: 404, body: { error: "not_found" } };
++  if (access === "forbidden") return { status: 403, body: { error: "forbidden" } };
+ 
+   const updated = { ...doc, ...req.body };
+   store.documents.set(doc.id, updated);

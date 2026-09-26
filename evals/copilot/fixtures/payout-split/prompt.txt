@@ -1,0 +1,1 @@
+Finance reconciliation is flagging some payouts where the recipient parts do not add up to the amount we actually paid, usually off by a cent or two. Please fix the split calculation for integer cents while preserving refunds and the existing deterministic ordering rules.

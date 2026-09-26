@@ -1,0 +1,73 @@
+diff --git a/src/invoice.ts b/src/invoice.ts
+index 38e5606..eb70868 100644
+--- a/src/invoice.ts
++++ b/src/invoice.ts
+@@ -1,11 +1,10 @@
++export type InvoiceStatus = "draft" | "sent" | "paid" | "voided" | "refunded";
++
+ export type Invoice = {
+   id: string;
+   customerId: string;
+   cents: number;
+-  sent: boolean;
+-  paid: boolean;
+-  voided: boolean;
+-  refunded: boolean;
++  status: InvoiceStatus;
+   sentAt?: string;
+   paidAt?: string;
+   voidedAt?: string;
+@@ -14,39 +13,38 @@ export type Invoice = {
+ 
+ export function createInvoice(id: string, customerId: string, cents: number): Invoice {
+   if (cents <= 0) throw new Error("invoice total must be positive");
+-  return { id, customerId, cents, sent: false, paid: false, voided: false, refunded: false };
++  return { id, customerId, cents, status: "draft" };
+ }
+ 
+ export function sendInvoice(invoice: Invoice, at: string): Invoice {
+-  if (invoice.voided) throw new Error("cannot send voided invoice");
+-  if (invoice.sent) return invoice;
+-  return { ...invoice, sent: true, sentAt: at };
++  if (invoice.status === "voided") throw new Error("cannot send voided invoice");
++  if (invoice.sentAt) return invoice;
++  return { ...invoice, status: invoice.status === "draft" ? "sent" : invoice.status, sentAt: at };
+ }
+ 
+ export function payInvoice(invoice: Invoice, at: string): Invoice {
+-  if (invoice.voided) throw new Error("cannot pay voided invoice");
+-  if (invoice.paid) return invoice;
+-  return { ...invoice, paid: true, paidAt: at };
++  if (invoice.status === "voided") throw new Error("cannot pay voided invoice");
++  if (invoice.status === "paid" || invoice.status === "refunded") return invoice;
++  return { ...invoice, status: "paid", paidAt: at };
+ }
+ 
+ export function voidInvoice(invoice: Invoice, at: string): Invoice {
+-  if (invoice.paid) throw new Error("cannot void paid invoice");
+-  if (invoice.voided) return invoice;
+-  return { ...invoice, voided: true, voidedAt: at };
++  if (invoice.status === "paid" || invoice.status === "refunded") throw new Error("cannot void paid invoice");
++  if (invoice.status === "voided") return invoice;
++  return { ...invoice, status: "voided", voidedAt: at };
+ }
+ 
+ export function refundInvoice(invoice: Invoice, at: string): Invoice {
+-  if (!invoice.paid) throw new Error("cannot refund unpaid invoice");
+-  if (invoice.refunded) return invoice;
+-  return { ...invoice, refunded: true, refundedAt: at };
++  if (invoice.status === "refunded") return invoice;
++  if (invoice.status !== "paid") throw new Error("cannot refund unpaid invoice");
++  return { ...invoice, status: "refunded", refundedAt: at };
+ }
+ 
+ export function invoiceSummary(invoice: Invoice) {
+-  const status = invoice.refunded ? "refunded" : invoice.voided ? "voided" : invoice.paid ? "paid" : invoice.sent ? "sent" : "draft";
+   return {
+     id: invoice.id,
+     customerId: invoice.customerId,
+     cents: invoice.cents,
+-    status,
++    status: invoice.status,
+   };
+ }

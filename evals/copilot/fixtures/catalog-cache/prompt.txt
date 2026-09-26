@@ -1,0 +1,1 @@
+During a cold start the upstream catalog service got hammered with identical item lookups, and after a brief upstream outage our service kept returning errors for those same items until we restarted it. Please fix the catalog cache so it coalesces work without changing the time-to-live behavior.

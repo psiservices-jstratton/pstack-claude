@@ -1,0 +1,27 @@
+diff --git a/src/session-store.ts b/src/session-store.ts
+index 8343569..5c1c209 100644
+--- a/src/session-store.ts
++++ b/src/session-store.ts
+@@ -27,12 +27,21 @@ export class SessionStore {
+   }
+ 
+   get(id: string): SessionRecord | undefined {
+-    return this.entries.get(id)?.record;
++    const entry = this.entries.get(id);
++    if (!entry) return undefined;
++    this.entries.delete(id);
++    this.entries.set(id, entry);
++    return entry.record;
+   }
+ 
+   set(id: string, record: SessionRecord): void {
+     const bytes = sessionBytes(record);
+     if (bytes > this.maxBytes) throw new RangeError("session is larger than the store budget");
++    const old = this.entries.get(id);
++    if (old) {
++      this.entries.delete(id);
++      this.currentBytes -= old.bytes;
++    }
+     this.entries.set(id, { record, bytes });
+     this.currentBytes += bytes;
+     this.trimToBudget();

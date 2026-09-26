@@ -1,0 +1,1 @@
+Hot sessions keep getting evicted even though they are used constantly, and the store's reported memory keeps creeping up over the day until it evicts almost everything. Please fix the size-bounded session store without changing its public API.
