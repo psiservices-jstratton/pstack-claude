@@ -1,0 +1,17 @@
+diff --git a/src/event-hub.ts b/src/event-hub.ts
+index 5a99500..f81bb46 100644
+--- a/src/event-hub.ts
++++ b/src/event-hub.ts
+@@ -32,7 +32,11 @@ export class EventHub<TEvents extends EventPayloads> {
+   emit<K extends keyof TEvents>(event: K, payload: TEvents[K]): void {
+     const list = this.listeners.get(event);
+     if (!list) return;
+-    for (const listener of list) {
++    // Snapshot the listener set at emit time so mutations (e.g. a `once`
++    // handler removing itself) during this emit don't skip or reorder
++    // listeners still pending in this pass.
++    const snapshot = list.slice();
++    for (const listener of snapshot) {
+       listener(payload as TEvents[keyof TEvents]);
+     }
+   }

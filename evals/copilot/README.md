@@ -29,6 +29,7 @@ node evals/copilot/run.mjs --models gpt-5-mini --judge-model gpt-5-mini --out /t
 | `--out` | `results/<stamp>` | output directory |
 | `--archive` | `archive/<stamp>` | where each run's workdir, reply, and session state are kept (gitignored) |
 | `--no-judge` | off | skip the judge |
+| `--regrade` | off | comma-separated result dirs; re-grade their archived runs against the current hidden checks and merge them into `--out`, without running candidates |
 
 Each candidate gets its own `HOME` under one temp root, with `COPILOT_HOME` set to that home's `.copilot` like a default install, so nothing reads or writes the real `~/.copilot`. After grading, each run's workdir, `reply.txt`, and `session-state/` are copied to `--archive`, and the temp root can be deleted.
 
@@ -46,6 +47,21 @@ Each fixture has `repo/` (the project the candidate works in, with visible tests
 | `stock-report` | multi-file feature (`report --format csv`) | RFC 4180 round-trip of commas, quotes, and newlines; filters; other formats unchanged |
 | `partner-clients` | refactor across a function boundary (three drifted retry loops into one helper) | exact per-client attempts, delays, and retried statuses; one shared loop |
 | `contacts-import` | performance (quadratic dedupe) | edge-case semantics unchanged; 60k rows under 1.5 s |
+| `catalog-cache` | bug (no coalescing, failed loads cached) | concurrent reads share one load; a failed load is not reused, and all its waiters see the error |
+| `event-hub` | bug (listener array mutated during emit) | once and self-removing listeners skip nobody; listeners added mid-emit wait |
+| `order-feed` | bug (cursor pagination on a non-unique timestamp) | shared timestamps visited exactly once in both directions and across pages |
+| `payout-split` | bug (per-share rounding) | parts sum exactly, including refund clawbacks; deterministic ties; zero weights |
+| `reminder-scheduler` | bug (fixed 24 h offsets across clock changes) | daily and weekly keep local time; a skipped local minute rolls forward; fixed zones unchanged |
+| `session-store` | bug (LRU recency and size accounting) | reads refresh recency; replacing or growing a session keeps byte totals exact |
+| `cli-help` | feature (`width` wrapping) | width respected; continuation indent; ANSI sequences kept whole; a long word gets its own line |
+| `settings-loader` | feature (environment overrides) | precedence, schema coercion, false spellings, dotted error names, case-insensitive keys |
+| `slug-registry` | feature (`uniqueSlug` export) | taken suffixes skipped, numeric bases, truncation room for the suffix, symbol-only fallback |
+| `doc-access` | refactor (inline access checks into one policy module) | route semantics unchanged; handlers delegate to one shared module |
+| `invoice-lifecycle` | refactor (four booleans into one status) | public status field; same transitions; no lifecycle flags left in source |
+| `usage-exports` | refactor (three copied rollups into one helper) | range and day rules unchanged; no exporter filters or buckets dates itself; all import one shared module |
+| `log-query` | performance (per-line regex rebuilds) | large search is quick; literal punctuation, invalid patterns, and all-terms matching unchanged |
+| `route-planner` | performance (slow path search) | large map is quick; cost, hop, and lexicographic tie rules unchanged |
+| `stock-diff` | performance (quadratic compare) | large snapshots are quick; SKU normalization, per-location rows, and group order unchanged |
 
 Each fixture also has a harness-only `reference.patch`, a minimal solution that makes every check pass. `node evals/copilot/check-fixtures.mjs [name ...]` verifies that the visible tests pass on the starting code, at least one hidden check fails on it, the reference patch makes every check pass, and nothing a candidate can see mentions the harness.
 

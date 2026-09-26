@@ -1,21 +1,10 @@
 {
-  "stamp": "2026-09-26T05-56-44",
-  "base": "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL",
-  "flags": {
-    "tasks": "catalog-cache,cli-help,doc-access,event-hub,invoice-lifecycle,log-query,order-feed,payout-split,reminder-scheduler,route-planner,session-store,settings-loader,slug-registry,stock-diff,usage-exports",
-    "models": "claude-sonnet-5",
-    "arms": "A",
-    "reps": "2",
-    "parallel": "5",
-    "no-judge": true,
-    "out": "evals/copilot/results/2026-09-26-calibration-s1",
-    "archive": "evals/copilot/archive/2026-09-26-calibration-s1",
-    "rep-start": "1",
-    "judge-model": "grok-4.7",
-    "panel": "claude-sonnet-5,grok-4.7",
-    "timeout-min": "30",
-    "seed": "4203"
-  },
+  "stamp": "2026-09-26T06-10-18",
+  "regradedFrom": [
+    "evals/copilot/archive/2026-09-26-calibration-s1 (payout-split runs dropped, see calibration-2026-09-26.md)",
+    "evals/copilot/archive/2026-09-26-calibration-s2",
+    "evals/copilot/archive/2026-09-26-calibration-payout"
+  ],
   "results": [
     {
       "id": "catalog-cache/claude-sonnet-5/r1/A",
@@ -31,7 +20,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/catalog-cache.claude-sonnet-5.r1.A/session-state/46649184-36b7-4e46-b076-f7889f32a04a/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/catalog-cache.claude-sonnet-5.r1.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/catalog-cache.claude-sonnet-5.r1.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/catalog-cache.claude-sonnet-5.r1.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 4,
@@ -112,7 +101,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/catalog-cache.claude-sonnet-5.r2.A/session-state/3f278c94-96dc-48c9-b232-7b2cc1113413/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/catalog-cache.claude-sonnet-5.r2.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/catalog-cache.claude-sonnet-5.r2.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/catalog-cache.claude-sonnet-5.r2.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 2,
@@ -196,7 +185,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/cli-help.claude-sonnet-5.r1.A/session-state/4ba0acca-1a16-49c1-9144-5f2327f3a59e/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/cli-help.claude-sonnet-5.r1.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/cli-help.claude-sonnet-5.r1.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/cli-help.claude-sonnet-5.r1.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 3,
@@ -283,7 +272,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/cli-help.claude-sonnet-5.r2.A/session-state/9b4b5ebf-89e7-4c8b-a3c8-5157bc5e592d/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/cli-help.claude-sonnet-5.r2.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/cli-help.claude-sonnet-5.r2.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/cli-help.claude-sonnet-5.r2.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 3,
@@ -360,7 +349,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/doc-access.claude-sonnet-5.r1.A/session-state/9cfb0f67-d2d7-4921-afbc-a380733ad67f/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/doc-access.claude-sonnet-5.r1.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/doc-access.claude-sonnet-5.r1.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/doc-access.claude-sonnet-5.r1.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 2,
@@ -456,7 +445,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/doc-access.claude-sonnet-5.r2.A/session-state/4c5fdf5e-1649-4204-8d09-4fa2c91c5faf/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/doc-access.claude-sonnet-5.r2.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/doc-access.claude-sonnet-5.r2.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/doc-access.claude-sonnet-5.r2.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 2,
@@ -553,7 +542,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/event-hub.claude-sonnet-5.r1.A/session-state/ec9aff84-153b-4e86-bfff-db24fa93191a/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/event-hub.claude-sonnet-5.r1.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/event-hub.claude-sonnet-5.r1.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/event-hub.claude-sonnet-5.r1.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 4,
@@ -630,7 +619,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/event-hub.claude-sonnet-5.r2.A/session-state/1ebe815f-0855-47df-b61c-29d58c70274a/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/event-hub.claude-sonnet-5.r2.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/event-hub.claude-sonnet-5.r2.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/event-hub.claude-sonnet-5.r2.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 4,
@@ -708,7 +697,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/invoice-lifecycle.claude-sonnet-5.r1.A/session-state/01d122e6-5603-4ea5-b83e-9808091dceae/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/invoice-lifecycle.claude-sonnet-5.r1.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/invoice-lifecycle.claude-sonnet-5.r1.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/invoice-lifecycle.claude-sonnet-5.r1.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 3,
@@ -784,7 +773,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/invoice-lifecycle.claude-sonnet-5.r2.A/session-state/0c135362-9381-469c-8166-cb908f742379/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/invoice-lifecycle.claude-sonnet-5.r2.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/invoice-lifecycle.claude-sonnet-5.r2.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/invoice-lifecycle.claude-sonnet-5.r2.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 3,
@@ -862,7 +851,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/log-query.claude-sonnet-5.r1.A/session-state/f537b2cc-4b02-406c-a20d-d9805dbd90be/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/log-query.claude-sonnet-5.r1.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/log-query.claude-sonnet-5.r1.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/log-query.claude-sonnet-5.r1.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 4,
@@ -934,7 +923,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/log-query.claude-sonnet-5.r2.A/session-state/47a7df80-b63d-4c38-99c4-f24766a5b458/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/log-query.claude-sonnet-5.r2.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/log-query.claude-sonnet-5.r2.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/log-query.claude-sonnet-5.r2.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 4,
@@ -1004,7 +993,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/order-feed.claude-sonnet-5.r1.A/session-state/a7210fd6-56a3-41ee-be28-074511ac09fe/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/order-feed.claude-sonnet-5.r1.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/order-feed.claude-sonnet-5.r1.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/order-feed.claude-sonnet-5.r1.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 3,
@@ -1094,7 +1083,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/order-feed.claude-sonnet-5.r2.A/session-state/7644ec19-b6ba-40f6-8fcb-b07354ebec58/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/order-feed.claude-sonnet-5.r2.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/order-feed.claude-sonnet-5.r2.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/order-feed.claude-sonnet-5.r2.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 3,
@@ -1171,170 +1160,6 @@
       }
     },
     {
-      "id": "payout-split/claude-sonnet-5/r1/A",
-      "task": "payout-split",
-      "model": "claude-sonnet-5",
-      "rep": 1,
-      "arm": "A",
-      "work": "evals/copilot/archive/2026-09-26-calibration-s1/payout-split.claude-sonnet-5.r1.A/work",
-      "baseSha": "fd60461cd33895949148f4bfb9118d5cadf60e86",
-      "exit": 0,
-      "timedOut": false,
-      "wallMs": 65419,
-      "events": "evals/copilot/archive/2026-09-26-calibration-s1/payout-split.claude-sonnet-5.r1.A/session-state/43950383-b83a-493b-91ad-b6d7bc244e40/events.jsonl",
-      "stderrTail": "",
-      "archived": "evals/copilot/archive/2026-09-26-calibration-s1/payout-split.claude-sonnet-5.r1.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/payout-split.claude-sonnet-5.r1.A.events.jsonl",
-      "grade": {
-        "hidden": {
-          "pass": 3,
-          "total": 4,
-          "failed": [
-            "negative refund clawbacks also sum exactly"
-          ]
-        },
-        "ownSuite": {
-          "pass": 4,
-          "total": 4
-        },
-        "diff": {
-          "filesTouched": 1,
-          "files": [
-            {
-              "path": "src/split.ts",
-              "add": 27,
-              "del": 4,
-              "kind": "src"
-            }
-          ],
-          "srcAdded": 27,
-          "srcRemoved": 4,
-          "testAdded": 0,
-          "testRemoved": 0,
-          "otherFiles": [],
-          "addedCommentLines": 4
-        },
-        "transcript": {
-          "toolCounts": {
-            "bash": 3,
-            "view": 8,
-            "edit": 1
-          },
-          "skills": [],
-          "tasks": [],
-          "ranTests": true,
-          "viewed": [
-            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-OlIrvb/payout-split/src/split.ts",
-            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-OlIrvb/payout-split/src/types.ts",
-            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-OlIrvb/payout-split/src/recipients.ts",
-            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-OlIrvb/payout-split/test/split.test.ts",
-            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-OlIrvb/payout-split/src/reconciliation.ts",
-            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-OlIrvb/payout-split/src/summary.ts",
-            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-OlIrvb/payout-split/src/batches.ts",
-            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-OlIrvb/payout-split/src/ledger.ts"
-          ],
-          "bash": [
-            "find . -type f -iname \"*.py\" -o -iname \"*.js\" -o -iname \"*.ts\" -o -iname \"*.go\" -o -iname \"*.rb\" -o -iname \"*.java\" 2>/dev/null | grep -v node_modules | head -50",
-            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-OlIrvb/payout-split && node --experimental-strip-types --test test/*.test.ts 2>&1 | tail -40",
-            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-OlIrvb/payout-split && node --experimental-strip-types -e '\nimport(\"./src/split.ts\").then(({splitPayout}) => {\n  const r = [{id:\"a\",weight:1},{id:\"b\",weight:1},{id:\"c\",weight:1}];\n  console.log(JSON.stringify(splitPayout(100, r)));   // was 33/33/33 = 99 before\n  console.log(JSON.stringify(splitPayout(-100, r)));   // refund case, should sum to -100\n  console.log(JSON.stringify(splitPayout(999, [{id:\"artist\",weight:3},{id:\"label\",weight:1}])));\n});'\n"
-          ],
-          "routingContext": false,
-          "premiumRequests": 1,
-          "modelMetrics": {
-            "claude-sonnet-5": {
-              "count": 13,
-              "cost": 1
-            }
-          },
-          "apiMs": 61065
-        }
-      }
-    },
-    {
-      "id": "payout-split/claude-sonnet-5/r2/A",
-      "task": "payout-split",
-      "model": "claude-sonnet-5",
-      "rep": 2,
-      "arm": "A",
-      "work": "evals/copilot/archive/2026-09-26-calibration-s1/payout-split.claude-sonnet-5.r2.A/work",
-      "baseSha": "fd60461cd33895949148f4bfb9118d5cadf60e86",
-      "exit": 0,
-      "timedOut": false,
-      "wallMs": 71676,
-      "events": "evals/copilot/archive/2026-09-26-calibration-s1/payout-split.claude-sonnet-5.r2.A/session-state/74e886b6-8075-46d3-a231-854493335b50/events.jsonl",
-      "stderrTail": "",
-      "archived": "evals/copilot/archive/2026-09-26-calibration-s1/payout-split.claude-sonnet-5.r2.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/payout-split.claude-sonnet-5.r2.A.events.jsonl",
-      "grade": {
-        "hidden": {
-          "pass": 3,
-          "total": 4,
-          "failed": [
-            "negative refund clawbacks also sum exactly"
-          ]
-        },
-        "ownSuite": {
-          "pass": 4,
-          "total": 4
-        },
-        "diff": {
-          "filesTouched": 1,
-          "files": [
-            {
-              "path": "src/split.ts",
-              "add": 38,
-              "del": 4,
-              "kind": "src"
-            }
-          ],
-          "srcAdded": 38,
-          "srcRemoved": 4,
-          "testAdded": 0,
-          "testRemoved": 0,
-          "otherFiles": [],
-          "addedCommentLines": 7
-        },
-        "transcript": {
-          "toolCounts": {
-            "bash": 5,
-            "view": 10,
-            "edit": 1
-          },
-          "skills": [],
-          "tasks": [],
-          "ranTests": true,
-          "viewed": [
-            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-EtpSef/payout-split/src/split.ts",
-            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-EtpSef/payout-split/test/split.test.ts",
-            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-EtpSef/payout-split/src/types.ts",
-            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-EtpSef/payout-split/src/recipients.ts",
-            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-EtpSef/payout-split/src/summary.ts",
-            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-EtpSef/payout-split/src/reconciliation.ts",
-            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-EtpSef/payout-split/src/ledger.ts",
-            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-EtpSef/payout-split/src/batches.ts",
-            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-EtpSef/payout-split/src/statements.ts",
-            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-EtpSef/payout-split/README.md"
-          ],
-          "bash": [
-            "find . -type f -iname \"*.py\" -o -iname \"*.js\" -o -iname \"*.ts\" -o -iname \"*.go\" -o -iname \"*.rb\" -o -iname \"*.java\" | grep -v node_modules | xargs grep -liE \"split\" 2>/dev/null",
-            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-EtpSef/payout-split && find . -path ./node_modules -prune -o -type f -print | grep -v .git",
-            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-EtpSef/payout-split && npm test 2>&1",
-            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-EtpSef/payout-split && node --input-type=module -e \"\nimport { splitPayout } from './src/split.ts';\nconst r = [{id:'a',weight:1},{id:'b',weight:1},{id:'c',weight:1}];\nconsole.log(splitPayout(100, r)); // was 34,33,33 sum should be 100\nconsole.log(splitPayout(-100, r)); // refund clawback\nconsole.log(splitPayout(1, [{id:'x',weight:1},{id:'y',weight:2}]));\n\"\n",
-            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-BVaFiL/ws-EtpSef/payout-split && node --input-type=module -e \"\nimport { splitPayout } from './src/split.ts';\nconst r=[{id:'a',weight:999999937},{id:'b',weight:1}];\nconst shares = splitPayout(9007199254740991, r);\nconsole.log(shares, shares.reduce((s,x)=>s+x.cents,0));\n\"\n"
-          ],
-          "routingContext": false,
-          "premiumRequests": 1,
-          "modelMetrics": {
-            "claude-sonnet-5": {
-              "count": 9,
-              "cost": 1
-            }
-          },
-          "apiMs": 66736
-        }
-      }
-    },
-    {
       "id": "reminder-scheduler/claude-sonnet-5/r1/A",
       "task": "reminder-scheduler",
       "model": "claude-sonnet-5",
@@ -1348,7 +1173,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/reminder-scheduler.claude-sonnet-5.r1.A/session-state/7084e31c-41e0-447f-87f6-7aec50202085/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/reminder-scheduler.claude-sonnet-5.r1.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/reminder-scheduler.claude-sonnet-5.r1.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/reminder-scheduler.claude-sonnet-5.r1.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 3,
@@ -1430,7 +1255,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/reminder-scheduler.claude-sonnet-5.r2.A/session-state/2ab4ab57-20ab-4fa6-89d2-ea41ee0a7898/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/reminder-scheduler.claude-sonnet-5.r2.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/reminder-scheduler.claude-sonnet-5.r2.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/reminder-scheduler.claude-sonnet-5.r2.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 3,
@@ -1515,7 +1340,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/route-planner.claude-sonnet-5.r1.A/session-state/2d77e8c5-46aa-4dca-b33b-aa9640026d70/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/route-planner.claude-sonnet-5.r1.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/route-planner.claude-sonnet-5.r1.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/route-planner.claude-sonnet-5.r1.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 4,
@@ -1597,7 +1422,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/route-planner.claude-sonnet-5.r2.A/session-state/a2e84aff-91a9-4ff8-8f4e-7920445042b4/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/route-planner.claude-sonnet-5.r2.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/route-planner.claude-sonnet-5.r2.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/route-planner.claude-sonnet-5.r2.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 4,
@@ -1682,7 +1507,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/session-store.claude-sonnet-5.r1.A/session-state/a1baa4a4-3b72-48a0-bb69-05944287fe29/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/session-store.claude-sonnet-5.r1.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/session-store.claude-sonnet-5.r1.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/session-store.claude-sonnet-5.r1.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 4,
@@ -1755,7 +1580,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/session-store.claude-sonnet-5.r2.A/session-state/5e0bb9f7-dcb6-4148-88b6-82c968994eed/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/session-store.claude-sonnet-5.r2.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/session-store.claude-sonnet-5.r2.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/session-store.claude-sonnet-5.r2.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 4,
@@ -1826,7 +1651,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/settings-loader.claude-sonnet-5.r1.A/session-state/550a1068-ceab-4c62-8863-c5373ab8ff8d/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/settings-loader.claude-sonnet-5.r1.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/settings-loader.claude-sonnet-5.r1.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/settings-loader.claude-sonnet-5.r1.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 4,
@@ -1931,7 +1756,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/settings-loader.claude-sonnet-5.r2.A/session-state/ffe68829-96a0-4b1a-982e-193af2654944/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/settings-loader.claude-sonnet-5.r2.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/settings-loader.claude-sonnet-5.r2.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/settings-loader.claude-sonnet-5.r2.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 4,
@@ -2035,7 +1860,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/slug-registry.claude-sonnet-5.r1.A/session-state/024658f6-6c2d-4237-b6c1-63e0881e18ef/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/slug-registry.claude-sonnet-5.r1.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/slug-registry.claude-sonnet-5.r1.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/slug-registry.claude-sonnet-5.r1.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 4,
@@ -2120,7 +1945,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/slug-registry.claude-sonnet-5.r2.A/session-state/9a647637-9387-4dd4-b0eb-c1c996deba15/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/slug-registry.claude-sonnet-5.r2.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/slug-registry.claude-sonnet-5.r2.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/slug-registry.claude-sonnet-5.r2.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 4,
@@ -2217,7 +2042,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/stock-diff.claude-sonnet-5.r1.A/session-state/c0c88d81-c351-4135-9268-471d16b54186/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/stock-diff.claude-sonnet-5.r1.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/stock-diff.claude-sonnet-5.r1.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/stock-diff.claude-sonnet-5.r1.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 4,
@@ -2290,7 +2115,7 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/stock-diff.claude-sonnet-5.r2.A/session-state/47ccda37-958f-43cf-9935-392aa30fccc7/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/stock-diff.claude-sonnet-5.r2.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/stock-diff.claude-sonnet-5.r2.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/stock-diff.claude-sonnet-5.r2.A.events.jsonl",
       "grade": {
         "hidden": {
           "pass": 4,
@@ -2361,14 +2186,12 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/usage-exports.claude-sonnet-5.r1.A/session-state/dbb6d630-8289-4750-a45f-c003f8197f9a/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/usage-exports.claude-sonnet-5.r1.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/usage-exports.claude-sonnet-5.r1.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/usage-exports.claude-sonnet-5.r1.A.events.jsonl",
       "grade": {
         "hidden": {
-          "pass": 1,
+          "pass": 2,
           "total": 2,
-          "failed": [
-            "the three exporters use one shared rollup helper"
-          ]
+          "failed": []
         },
         "ownSuite": {
           "pass": 3,
@@ -2457,14 +2280,12 @@
       "events": "evals/copilot/archive/2026-09-26-calibration-s1/usage-exports.claude-sonnet-5.r2.A/session-state/ba5b52b2-52aa-404a-9442-113c6295ff7b/events.jsonl",
       "stderrTail": "",
       "archived": "evals/copilot/archive/2026-09-26-calibration-s1/usage-exports.claude-sonnet-5.r2.A",
-      "eventsExtract": "evals/copilot/results/2026-09-26-calibration-s1/usage-exports.claude-sonnet-5.r2.A.events.jsonl",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/usage-exports.claude-sonnet-5.r2.A.events.jsonl",
       "grade": {
         "hidden": {
-          "pass": 1,
+          "pass": 2,
           "total": 2,
-          "failed": [
-            "the three exporters use one shared rollup helper"
-          ]
+          "failed": []
         },
         "ownSuite": {
           "pass": 3,
@@ -2542,6 +2363,1430 @@
             }
           },
           "apiMs": 65616
+        }
+      }
+    },
+    {
+      "id": "cli-help/claude-sonnet-5/r3/A",
+      "task": "cli-help",
+      "model": "claude-sonnet-5",
+      "rep": 3,
+      "arm": "A",
+      "work": "evals/copilot/archive/2026-09-26-calibration-s2/cli-help.claude-sonnet-5.r3.A/work",
+      "baseSha": "6e655be91a915801027d2eb46291f43f3baa48e9",
+      "exit": 0,
+      "timedOut": false,
+      "wallMs": 72275,
+      "events": "evals/copilot/archive/2026-09-26-calibration-s2/cli-help.claude-sonnet-5.r3.A/session-state/9b68b1df-2e84-42e6-9b4f-30eed6f24192/events.jsonl",
+      "stderrTail": "",
+      "archived": "evals/copilot/archive/2026-09-26-calibration-s2/cli-help.claude-sonnet-5.r3.A",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/cli-help.claude-sonnet-5.r3.A.events.jsonl",
+      "grade": {
+        "hidden": {
+          "pass": 3,
+          "total": 3,
+          "failed": []
+        },
+        "ownSuite": {
+          "pass": 2,
+          "total": 2
+        },
+        "diff": {
+          "filesTouched": 1,
+          "files": [
+            {
+              "path": "src/help.ts",
+              "add": 51,
+              "del": 2,
+              "kind": "src"
+            }
+          ],
+          "srcAdded": 51,
+          "srcRemoved": 2,
+          "testAdded": 0,
+          "testRemoved": 0,
+          "otherFiles": [],
+          "addedCommentLines": 2
+        },
+        "transcript": {
+          "toolCounts": {
+            "bash": 7,
+            "view": 6,
+            "edit": 1
+          },
+          "skills": [],
+          "tasks": [],
+          "ranTests": true,
+          "viewed": [
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-XpxMER/cli-help/src",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-XpxMER/cli-help/src/help.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-XpxMER/cli-help/src/colors.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-XpxMER/cli-help/src/model.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-XpxMER/cli-help/src/catalog.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-XpxMER/cli-help/test/help.test.ts"
+          ],
+          "bash": [
+            "grep -rn \"formatHelp\" --include=*.go . | head -50",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-XpxMER/cli-help && grep -rn \"formatHelp\" --include=*.go . | head -50",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-XpxMER/cli-help && ls -la && echo --- && grep -rln \"formatHelp\" . 2>/dev/null",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-XpxMER/cli-help && cat package.json && npx tsx --test test/*.test.ts 2>&1 | tail -40 || node --experimental-strip-types --test test/*.test.ts 2>&1 | tail -40",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-XpxMER/cli-help && npx tsx -e '\nimport { formatHelp } from \"./src/index.ts\";\nconst commands = [\n  { name: \"publish\", summary: \"Publish the current draft to the site immediately\", flags: [\n    { name: \"--dry-run\", description: \"Show what would change without saving anything to disk at all\" },\n    { name: \"--tag\", description: \"Limit the command to one supercalifragilisticexpialidocious tag\" },\n  ]},\n  { name: \"list\", summary: \"List recent drafts\" },\n];\nconsole.log(JSON.stringify(formatHelp(commands, { width: 40 })));\nconsole.log(formatHelp(commands, { width: 40 }));\n'\n",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-XpxMER/cli-help && npx tsc --noEmit -p . 2>&1 | tail -30 || true",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-XpxMER/cli-help && node --test 2>&1 | tail -20"
+          ],
+          "routingContext": false,
+          "premiumRequests": 1,
+          "modelMetrics": {
+            "claude-sonnet-5": {
+              "count": 15,
+              "cost": 1
+            }
+          },
+          "apiMs": 48652
+        }
+      }
+    },
+    {
+      "id": "doc-access/claude-sonnet-5/r3/A",
+      "task": "doc-access",
+      "model": "claude-sonnet-5",
+      "rep": 3,
+      "arm": "A",
+      "work": "evals/copilot/archive/2026-09-26-calibration-s2/doc-access.claude-sonnet-5.r3.A/work",
+      "baseSha": "9cd0ce49fc62a79ee91b4e7389a95e4ce8a05969",
+      "exit": 0,
+      "timedOut": false,
+      "wallMs": 55001,
+      "events": "evals/copilot/archive/2026-09-26-calibration-s2/doc-access.claude-sonnet-5.r3.A/session-state/fb5c7c62-47f9-4897-aae6-8c334b5eeb98/events.jsonl",
+      "stderrTail": "",
+      "archived": "evals/copilot/archive/2026-09-26-calibration-s2/doc-access.claude-sonnet-5.r3.A",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/doc-access.claude-sonnet-5.r3.A.events.jsonl",
+      "grade": {
+        "hidden": {
+          "pass": 2,
+          "total": 2,
+          "failed": []
+        },
+        "ownSuite": {
+          "pass": 4,
+          "total": 4
+        },
+        "diff": {
+          "filesTouched": 4,
+          "files": [
+            {
+              "path": "src/policy.ts",
+              "add": 36,
+              "del": 0,
+              "kind": "src"
+            },
+            {
+              "path": "src/routes/audit.ts",
+              "add": 5,
+              "del": 7,
+              "kind": "src"
+            },
+            {
+              "path": "src/routes/read.ts",
+              "add": 6,
+              "del": 11,
+              "kind": "src"
+            },
+            {
+              "path": "src/routes/update.ts",
+              "add": 5,
+              "del": 17,
+              "kind": "src"
+            }
+          ],
+          "srcAdded": 52,
+          "srcRemoved": 35,
+          "testAdded": 0,
+          "testRemoved": 0,
+          "otherFiles": [],
+          "addedCommentLines": 9
+        },
+        "transcript": {
+          "toolCounts": {
+            "bash": 2,
+            "view": 8,
+            "create": 2,
+            "edit": 3
+          },
+          "skills": [],
+          "tasks": [],
+          "ranTests": true,
+          "viewed": [
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-GZxGVT/doc-access",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-GZxGVT/doc-access/src/types.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-GZxGVT/doc-access/src/responses.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-GZxGVT/doc-access/src/routes/read.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-GZxGVT/doc-access/src/routes/audit.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-GZxGVT/doc-access/src/routes/update.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-GZxGVT/doc-access/test/routes.test.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-GZxGVT/doc-access/package.json"
+          ],
+          "bash": [
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-GZxGVT/doc-access && find . -type f -not -path './.git/*' | head -200",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-GZxGVT/doc-access && npm test 2>&1"
+          ],
+          "routingContext": false,
+          "premiumRequests": 1,
+          "modelMetrics": {
+            "claude-sonnet-5": {
+              "count": 10,
+              "cost": 1
+            }
+          },
+          "apiMs": 49441
+        }
+      }
+    },
+    {
+      "id": "event-hub/claude-sonnet-5/r3/A",
+      "task": "event-hub",
+      "model": "claude-sonnet-5",
+      "rep": 3,
+      "arm": "A",
+      "work": "evals/copilot/archive/2026-09-26-calibration-s2/event-hub.claude-sonnet-5.r3.A/work",
+      "baseSha": "6e42978057f85b92184603caf60867f238617517",
+      "exit": 0,
+      "timedOut": false,
+      "wallMs": 24707,
+      "events": "evals/copilot/archive/2026-09-26-calibration-s2/event-hub.claude-sonnet-5.r3.A/session-state/b7dda26c-bf86-4be9-88d3-4b393bde8901/events.jsonl",
+      "stderrTail": "",
+      "archived": "evals/copilot/archive/2026-09-26-calibration-s2/event-hub.claude-sonnet-5.r3.A",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/event-hub.claude-sonnet-5.r3.A.events.jsonl",
+      "grade": {
+        "hidden": {
+          "pass": 4,
+          "total": 4,
+          "failed": []
+        },
+        "ownSuite": {
+          "pass": 4,
+          "total": 4
+        },
+        "diff": {
+          "filesTouched": 1,
+          "files": [
+            {
+              "path": "src/event-hub.ts",
+              "add": 5,
+              "del": 1,
+              "kind": "src"
+            }
+          ],
+          "srcAdded": 5,
+          "srcRemoved": 1,
+          "testAdded": 0,
+          "testRemoved": 0,
+          "otherFiles": [],
+          "addedCommentLines": 3
+        },
+        "transcript": {
+          "toolCounts": {
+            "bash": 3,
+            "view": 2,
+            "edit": 1
+          },
+          "skills": [],
+          "tasks": [],
+          "ranTests": true,
+          "viewed": [
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-YQFotG/event-hub",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-YQFotG/event-hub/src/event-hub.ts"
+          ],
+          "bash": [
+            "find . -type f -name \"*.md\" | grep -i event | head; find . -iname \"*hub*\" -not -path \"*/node_modules/*\"",
+            "grep -n -i \"order\\|once\\|emit\" -A3 -B3 \"/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-YQFotG/event-hub/README.md\"",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-YQFotG/event-hub && npm test 2>&1 | tail -40"
+          ],
+          "routingContext": false,
+          "premiumRequests": 1,
+          "modelMetrics": {
+            "claude-sonnet-5": {
+              "count": 7,
+              "cost": 1
+            }
+          },
+          "apiMs": 18656
+        }
+      }
+    },
+    {
+      "id": "invoice-lifecycle/claude-sonnet-5/r3/A",
+      "task": "invoice-lifecycle",
+      "model": "claude-sonnet-5",
+      "rep": 3,
+      "arm": "A",
+      "work": "evals/copilot/archive/2026-09-26-calibration-s2/invoice-lifecycle.claude-sonnet-5.r3.A/work",
+      "baseSha": "dd9dc23f921643c9cecd73a6621c2ffdcf89300a",
+      "exit": 0,
+      "timedOut": false,
+      "wallMs": 59432,
+      "events": "evals/copilot/archive/2026-09-26-calibration-s2/invoice-lifecycle.claude-sonnet-5.r3.A/session-state/f9f999e0-acb3-4a6a-b7a6-a6d0dc3d084e/events.jsonl",
+      "stderrTail": "",
+      "archived": "evals/copilot/archive/2026-09-26-calibration-s2/invoice-lifecycle.claude-sonnet-5.r3.A",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/invoice-lifecycle.claude-sonnet-5.r3.A.events.jsonl",
+      "grade": {
+        "hidden": {
+          "pass": 3,
+          "total": 3,
+          "failed": []
+        },
+        "ownSuite": {
+          "pass": 4,
+          "total": 4
+        },
+        "diff": {
+          "filesTouched": 1,
+          "files": [
+            {
+              "path": "src/invoice.ts",
+              "add": 52,
+              "del": 19,
+              "kind": "src"
+            }
+          ],
+          "srcAdded": 52,
+          "srcRemoved": 19,
+          "testAdded": 0,
+          "testRemoved": 0,
+          "otherFiles": [],
+          "addedCommentLines": 5
+        },
+        "transcript": {
+          "toolCounts": {
+            "bash": 7,
+            "view": 3
+          },
+          "skills": [],
+          "tasks": [],
+          "ranTests": true,
+          "viewed": [
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-REgJzH/invoice-lifecycle/src/invoice.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-REgJzH/invoice-lifecycle/test/invoice.test.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-REgJzH/invoice-lifecycle/src/messages.ts"
+          ],
+          "bash": [
+            "find . -type f -not -path \"./.git/*\" | head -100",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-REgJzH/invoice-lifecycle && grep -rn \"\\.sent\\|\\.paid\\|\\.voided\\|\\.refunded\" --include=*.ts . | grep -v node_modules",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-REgJzH/invoice-lifecycle && cat package.json",
+            "node --version",
+            "cat > /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-REgJzH/invoice-lifecycle/src/invoice.ts << 'EOF'\nexport type InvoiceStatus = \"draft\" | \"sent\" | \"paid\" | \"voided\" | \"refunded\";\n\nexport type Invoice = {\n  id: string;\n  customerId: string;\n  cents: number;\n  status: InvoiceStatus;\n  sentAt?: string;\n  paidAt?: string;\n  voidedAt?: string;\n  refundedAt?: string;\n};\n\ntype Transition = {\n  /** Statuses from which this transition is allowed to run. */\n  from: InvoiceStatus[];\n  /** Status a successful transition moves the invoice into. */\n  to: InvoiceStatus;\n  /** Statuses that already satisfy the transition, so it becomes a no-op. */\n  noop: InvoiceStatus[];\n  /** Error raised when the invoice is in a status outside `from`/`noop`. */\n  error: string;\n  /** Timestamp field stamped on the invoice when the transition applies. */\n  at: keyof Pick<Invoice, \"sentAt\" | \"paidAt\" | \"voidedAt\" | \"refundedAt\">;\n};\n\nfunction applyTransition(invoice: Invoice, at: string, transition: Transition): Invoice {\n  if (transition.noop.includes(invoice.status)) return invoice;\n  if (!transition.from.includes(invoice.status)) throw new Error(transition.error);\n  return { ...invoice, status: transition.to, [transition.at]: at };\n}\n\nexport function createInvoice(id: string, customerId: string, cents: number): Invoice {\n  if (cents <= 0) throw new Error(\"invoice total must be positive\");\n  return { id, customerId, cents, status: \"draft\" };\n}\n\nexport function sendInvoice(invoice: Invoice, at: string): Invoice {\n  return applyTransition(invoice, at, {\n    from: [\"draft\"],\n    to: \"sent\",\n    noop: [\"sent\", \"paid\", \"refunded\"],\n    error: \"cannot send voided invoice\",\n    at: \"sentAt\",\n  });\n}\n\nexport function payInvoice(invoice: Invoice, at: string): Invoice {\n  return applyTransition(invoice, at, {\n    from: [\"draft\", \"sent\"],\n    to: \"paid\",\n    noop: [\"paid\", \"refunded\"],\n    error: \"cannot pay voided invoice\",\n    at: \"paidAt\",\n  });\n}\n\nexport function voidInvoice(invoice: Invoice, at: string): Invoice {\n  return applyTransition(invoice, at, {\n    from: [\"draft\", \"sent\"],\n    to: \"voided\",\n    noop: [\"voided\"],\n    error: \"cannot void paid invoice\",\n    at: \"voidedAt\",\n  });\n}\n\nexport function refundInvoice(invoice: Invoice, at: string): Invoice {\n  return applyTransition(invoice, at, {\n    from: [\"paid\"],\n    to: \"refunded\",\n    noop: [\"refunded\"],\n    error: \"cannot refund unpaid invoice\",\n    at: \"refundedAt\",\n  });\n}\n\nexport function invoiceSummary(invoice: Invoice) {\n  return {\n    id: invoice.id,\n    customerId: invoice.customerId,\n    cents: invoice.cents,\n    status: invoice.status,\n  };\n}\nEOF",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-REgJzH/invoice-lifecycle && npm test 2>&1 | tail -40",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-REgJzH/invoice-lifecycle && grep -rn \"\\.sent\\b\\|\\.paid\\b\\|\\.voided\\b\\|\\.refunded\\b\" --include=*.ts . | grep -v node_modules; npx tsc --version 2>/dev/null; npx tsc --noEmit -p . 2>&1 | head -30 || echo \"no tsconfig\""
+          ],
+          "routingContext": false,
+          "premiumRequests": 1,
+          "modelMetrics": {
+            "claude-sonnet-5": {
+              "count": 9,
+              "cost": 1
+            }
+          },
+          "apiMs": 50553
+        }
+      }
+    },
+    {
+      "id": "log-query/claude-sonnet-5/r3/A",
+      "task": "log-query",
+      "model": "claude-sonnet-5",
+      "rep": 3,
+      "arm": "A",
+      "work": "evals/copilot/archive/2026-09-26-calibration-s2/log-query.claude-sonnet-5.r3.A/work",
+      "baseSha": "68df09ee0da6343f5e35dceb99e8e8d7f078a7c6",
+      "exit": 0,
+      "timedOut": false,
+      "wallMs": 23317,
+      "events": "evals/copilot/archive/2026-09-26-calibration-s2/log-query.claude-sonnet-5.r3.A/session-state/70dc2092-6b04-4b0e-8f84-b25e8b6c06fb/events.jsonl",
+      "stderrTail": "",
+      "archived": "evals/copilot/archive/2026-09-26-calibration-s2/log-query.claude-sonnet-5.r3.A",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/log-query.claude-sonnet-5.r3.A.events.jsonl",
+      "grade": {
+        "hidden": {
+          "pass": 4,
+          "total": 4,
+          "failed": []
+        },
+        "ownSuite": {
+          "pass": 5,
+          "total": 5
+        },
+        "diff": {
+          "filesTouched": 1,
+          "files": [
+            {
+              "path": "src/query.ts",
+              "add": 3,
+              "del": 3,
+              "kind": "src"
+            }
+          ],
+          "srcAdded": 3,
+          "srcRemoved": 3,
+          "testAdded": 0,
+          "testRemoved": 0,
+          "otherFiles": [],
+          "addedCommentLines": 0
+        },
+        "transcript": {
+          "toolCounts": {
+            "grep": 1,
+            "view": 1,
+            "edit": 1,
+            "bash": 1
+          },
+          "skills": [],
+          "tasks": [],
+          "ranTests": true,
+          "viewed": [
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-VSK8oj/log-query/src/query.ts"
+          ],
+          "bash": [
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-VSK8oj/log-query && npx tsc --noEmit 2>&1 | tail -30 && npm test 2>&1 | tail -50"
+          ],
+          "routingContext": false,
+          "premiumRequests": 1,
+          "modelMetrics": {
+            "claude-sonnet-5": {
+              "count": 5,
+              "cost": 1
+            }
+          },
+          "apiMs": 15355
+        }
+      }
+    },
+    {
+      "id": "order-feed/claude-sonnet-5/r3/A",
+      "task": "order-feed",
+      "model": "claude-sonnet-5",
+      "rep": 3,
+      "arm": "A",
+      "work": "evals/copilot/archive/2026-09-26-calibration-s2/order-feed.claude-sonnet-5.r3.A/work",
+      "baseSha": "b569e60769a28c6907bc2f97a7d9cbe84fab7b1c",
+      "exit": 0,
+      "timedOut": false,
+      "wallMs": 64855,
+      "events": "evals/copilot/archive/2026-09-26-calibration-s2/order-feed.claude-sonnet-5.r3.A/session-state/b3b888ce-e0a7-4627-a87c-e2d2b26c1539/events.jsonl",
+      "stderrTail": "",
+      "archived": "evals/copilot/archive/2026-09-26-calibration-s2/order-feed.claude-sonnet-5.r3.A",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/order-feed.claude-sonnet-5.r3.A.events.jsonl",
+      "grade": {
+        "hidden": {
+          "pass": 3,
+          "total": 3,
+          "failed": []
+        },
+        "ownSuite": {
+          "pass": 6,
+          "total": 6
+        },
+        "diff": {
+          "filesTouched": 3,
+          "files": [
+            {
+              "path": "src/cursor.ts",
+              "add": 4,
+              "del": 2,
+              "kind": "src"
+            },
+            {
+              "path": "src/feed.ts",
+              "add": 16,
+              "del": 4,
+              "kind": "src"
+            },
+            {
+              "path": "test/feed.test.ts",
+              "add": 25,
+              "del": 0,
+              "kind": "test"
+            }
+          ],
+          "srcAdded": 20,
+          "srcRemoved": 6,
+          "testAdded": 25,
+          "testRemoved": 0,
+          "otherFiles": [],
+          "addedCommentLines": 0
+        },
+        "transcript": {
+          "toolCounts": {
+            "bash": 3,
+            "view": 7,
+            "edit": 5
+          },
+          "skills": [],
+          "tasks": [],
+          "ranTests": true,
+          "viewed": [
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-WxlzYH/order-feed",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-WxlzYH/order-feed/src/feed.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-WxlzYH/order-feed/src/cursor.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-WxlzYH/order-feed/src/types.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-WxlzYH/order-feed/test/feed.test.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-WxlzYH/order-feed/README.md"
+          ],
+          "bash": [
+            "find /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-WxlzYH/order-feed -type f -not -path \"*/node_modules/*\" -not -path \"*/.git/*\" | head -100",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-WxlzYH/order-feed && cat package.json",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-WxlzYH/order-feed && npm test 2>&1 | tail -60"
+          ],
+          "routingContext": false,
+          "premiumRequests": 1,
+          "modelMetrics": {
+            "claude-sonnet-5": {
+              "count": 12,
+              "cost": 1
+            }
+          },
+          "apiMs": 56219
+        }
+      }
+    },
+    {
+      "id": "reminder-scheduler/claude-sonnet-5/r3/A",
+      "task": "reminder-scheduler",
+      "model": "claude-sonnet-5",
+      "rep": 3,
+      "arm": "A",
+      "work": "evals/copilot/archive/2026-09-26-calibration-s2/reminder-scheduler.claude-sonnet-5.r3.A/work",
+      "baseSha": "6bffb53d8beed130aef5606a18cefe5e585b6905",
+      "exit": 0,
+      "timedOut": false,
+      "wallMs": 57086,
+      "events": "evals/copilot/archive/2026-09-26-calibration-s2/reminder-scheduler.claude-sonnet-5.r3.A/session-state/166c2d74-0c25-481b-a85e-d7d92c55508b/events.jsonl",
+      "stderrTail": "",
+      "archived": "evals/copilot/archive/2026-09-26-calibration-s2/reminder-scheduler.claude-sonnet-5.r3.A",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/reminder-scheduler.claude-sonnet-5.r3.A.events.jsonl",
+      "grade": {
+        "hidden": {
+          "pass": 3,
+          "total": 4,
+          "failed": [
+            "a skipped local minute rolls forward to the next valid minute"
+          ]
+        },
+        "ownSuite": {
+          "pass": 7,
+          "total": 7
+        },
+        "diff": {
+          "filesTouched": 2,
+          "files": [
+            {
+              "path": "src/scheduler.ts",
+              "add": 3,
+              "del": 12,
+              "kind": "src"
+            },
+            {
+              "path": "test/scheduler.test.ts",
+              "add": 10,
+              "del": 0,
+              "kind": "test"
+            }
+          ],
+          "srcAdded": 3,
+          "srcRemoved": 12,
+          "testAdded": 10,
+          "testRemoved": 0,
+          "otherFiles": [],
+          "addedCommentLines": 0
+        },
+        "transcript": {
+          "toolCounts": {
+            "bash": 3,
+            "view": 6,
+            "edit": 4
+          },
+          "skills": [],
+          "tasks": [],
+          "ranTests": true,
+          "viewed": [
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Uy50Oy/reminder-scheduler",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Uy50Oy/reminder-scheduler/src/scheduler.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Uy50Oy/reminder-scheduler/src/timeZone.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Uy50Oy/reminder-scheduler/src/types.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Uy50Oy/reminder-scheduler/test/scheduler.test.ts"
+          ],
+          "bash": [
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Uy50Oy/reminder-scheduler && git --no-pager log --oneline -5 && echo --- && find . -path ./node_modules -prune -o -type f -print | grep -v .git | head -100",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Uy50Oy/reminder-scheduler && cat package.json && npm test 2>&1 | tail -60",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Uy50Oy/reminder-scheduler && npm test 2>&1 | tail -60"
+          ],
+          "routingContext": false,
+          "premiumRequests": 1,
+          "modelMetrics": {
+            "claude-sonnet-5": {
+              "count": 11,
+              "cost": 1
+            }
+          },
+          "apiMs": 52148
+        }
+      }
+    },
+    {
+      "id": "route-planner/claude-sonnet-5/r3/A",
+      "task": "route-planner",
+      "model": "claude-sonnet-5",
+      "rep": 3,
+      "arm": "A",
+      "work": "evals/copilot/archive/2026-09-26-calibration-s2/route-planner.claude-sonnet-5.r3.A/work",
+      "baseSha": "80950774d16003fbbb4fcc92e3b41e885de42131",
+      "exit": 0,
+      "timedOut": false,
+      "wallMs": 203542,
+      "events": "evals/copilot/archive/2026-09-26-calibration-s2/route-planner.claude-sonnet-5.r3.A/session-state/b98b7120-83a3-4290-be6a-f6ed4e0fa910/events.jsonl",
+      "stderrTail": "",
+      "archived": "evals/copilot/archive/2026-09-26-calibration-s2/route-planner.claude-sonnet-5.r3.A",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/route-planner.claude-sonnet-5.r3.A.events.jsonl",
+      "grade": {
+        "hidden": {
+          "pass": 4,
+          "total": 4,
+          "failed": []
+        },
+        "ownSuite": {
+          "pass": 4,
+          "total": 4
+        },
+        "diff": {
+          "filesTouched": 1,
+          "files": [
+            {
+              "path": "src/planner.ts",
+              "add": 88,
+              "del": 34,
+              "kind": "src"
+            }
+          ],
+          "srcAdded": 88,
+          "srcRemoved": 34,
+          "testAdded": 0,
+          "testRemoved": 0,
+          "otherFiles": [],
+          "addedCommentLines": 3
+        },
+        "transcript": {
+          "toolCounts": {
+            "bash": 13,
+            "view": 3,
+            "grep": 1,
+            "create": 1
+          },
+          "skills": [],
+          "tasks": [],
+          "ranTests": true,
+          "viewed": [
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Xuq2cL/route-planner/src/planner.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Xuq2cL/route-planner",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Xuq2cL/route-planner/test/planner.test.ts"
+          ],
+          "bash": [
+            "grep -rn \"cheapestRoute\" --include=*.* -l . 2>/dev/null",
+            "cat /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Xuq2cL/route-planner/src/graph.ts",
+            "grep -n \"cheapestRoute\\|performance\\|depot\" -A3 -B3 /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Xuq2cL/route-planner/README.md | head -100",
+            "grep -n \"RangeError\\|negative\\|cost < 0\" -r /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Xuq2cL/route-planner --include=*.ts",
+            "cat /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Xuq2cL/route-planner/package.json",
+            "cat > /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Xuq2cL/route-planner/src/planner.ts << 'EOF'\nimport { type Road, type Route } from \"./graph.ts\";\n\ntype Candidate = {\n  cost: number;\n  hops: number;\n  depots: string[];\n  node: string;\n};\n\n// Total order matching the documented tie-break rules: cost, then hops, then\n// the lexicographically smallest depot sequence.\nfunction compareCandidates(a: Candidate, b: Candidate): number {\n  if (a.cost !== b.cost) return a.cost - b.cost;\n  if (a.hops !== b.hops) return a.hops - b.hops;\n  const da = a.depots;\n  const db = b.depots;\n  const length = Math.min(da.length, db.length);\n  for (let i = 0; i < length; i++) {\n    if (da[i] !== db[i]) return da[i] < db[i] ? -1 : 1;\n  }\n  return da.length - db.length;\n}\n\n// Binary min-heap keyed by compareCandidates, used as the Dijkstra frontier.\nclass CandidateHeap {\n  private readonly items: Candidate[] = [];\n\n  get size(): number {\n    return this.items.length;\n  }\n\n  push(entry: Candidate): void {\n    const items = this.items;\n    items.push(entry);\n    let index = items.length - 1;\n    while (index > 0) {\n      const parent = (index - 1) >> 1;\n      if (compareCandidates(items[index], items[parent]) < 0) {\n        [items[index], items[parent]] = [items[parent], items[index]];\n        index = parent;\n      } else {\n        break;\n      }\n    }\n  }\n\n  pop(): Candidate | undefined {\n    const items = this.items;\n    if (items.length === 0) return undefined;\n    const top = items[0];\n    const last = items.pop() as Candidate;\n    if (items.length > 0) {\n      items[0] = last;\n      const length = items.length;\n      let index = 0;\n      while (true) {\n        const left = index * 2 + 1;\n        const right = index * 2 + 2;\n        let smallest = index;\n        if (left < length && compareCandidates(items[left], items[smallest]) < 0) smallest = left;\n        if (right < length && compareCandidates(items[right], items[smallest]) < 0) smallest = right;\n        if (smallest === index) break;\n        [items[index], items[smallest]] = [items[smallest], items[index]];\n        index = smallest;\n      }\n    }\n    return top;\n  }\n}\n\nexport function cheapestRoute(roads: readonly Road[], start: string, goal: string): Route | null {\n  const adjacency = new Map<string, Road[]>();\n  for (const road of roads) {\n    let outgoing = adjacency.get(road.from);\n    if (!outgoing) {\n      outgoing = [];\n      adjacency.set(road.from, outgoing);\n    }\n    outgoing.push(road);\n  }\n\n  const finalized = new Set<string>();\n  const frontier = new CandidateHeap();\n  frontier.push({ cost: 0, hops: 0, depots: [start], node: start });\n\n  while (frontier.size > 0) {\n    const current = frontier.pop() as Candidate;\n    if (finalized.has(current.node)) continue;\n    finalized.add(current.node);\n\n    if (current.node === goal) return { depots: current.depots, cost: current.cost };\n\n    const outgoing = adjacency.get(current.node);\n    if (!outgoing) continue;\n    for (const road of outgoing) {\n      if (road.cost < 0) throw new RangeError(\"Road costs must be non-negative\");\n      if (finalized.has(road.to)) continue;\n      frontier.push({\n        cost: current.cost + road.cost,\n        hops: current.hops + 1,\n        depots: [...current.depots, road.to],\n        node: road.to,\n      });\n    }\n  }\n\n  return null;\n}\nEOF\necho done",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Xuq2cL/route-planner && npm test 2>&1",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Xuq2cL/route-planner && cat > /tmp/bench.mjs << 'EOF'\nimport { cheapestRoute } from \"./src/planner.ts\";\n\nfunction rand(seed) { let s = seed; return () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff; }\n\nconst N = 3000;\nconst rnd = rand(42);\nconst roads = [];\nfor (let i = 0; i < N; i++) {\n  const from = \"D\" + i;\n  const edges = 5 + Math.floor(rnd() * 5);\n  for (let e = 0; e < edges; e++) {\n    const to = \"D\" + Math.floor(rnd() * N);\n    if (to === from) continue;\n    roads.push({ from, to, cost: Math.floor(rnd() * 20) });\n  }\n}\nconsole.log(\"roads:\", roads.length);\nconst t0 = performance.now();\nconst route = cheapestRoute(roads, \"D0\", \"D\" + (N - 1));\nconst t1 = performance.now();\nconsole.log(\"time ms:\", (t1 - t0).toFixed(2));\nconsole.log(route);\nEOF\nnode --experimental-strip-types /tmp/bench.mjs 2>&1 | tail -20",
+            "node --version; cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Xuq2cL/route-planner && cp /tmp/bench.mjs ./bench.mts 2>/dev/null; node bench.mts 2>&1 | tail -20",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Xuq2cL/route-planner && node -e \"console.log(1)\" 2>&1",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Xuq2cL/route-planner && rm -f bench.mts && cat > test/bench.test.ts << 'EOF'\nimport { test } from \"node:test\";\nimport { cheapestRoute } from \"../src/planner.ts\";\n\nfunction rand(seed: number) { let s = seed; return () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff; }\n\ntest(\"perf smoke test on 3000 depots\", () => {\n  const N = 3000;\n  const rnd = rand(42);\n  const roads = [];\n  for (let i = 0; i < N; i++) {\n    const from = \"D\" + i;\n    const edges = 5 + Math.floor(rnd() * 5);\n    for (let e = 0; e < edges; e++) {\n      const to = \"D\" + Math.floor(rnd() * N);\n      if (to === from) continue;\n      roads.push({ from, to, cost: Math.floor(rnd() * 20) });\n    }\n  }\n  console.log(\"roads:\", roads.length);\n  const t0 = performance.now();\n  const route = cheapestRoute(roads, \"D0\", \"D\" + (N - 1));\n  const t1 = performance.now();\n  console.log(\"time ms:\", (t1 - t0).toFixed(2));\n  console.log(JSON.stringify(route));\n});\nEOF\nnode --test test/bench.test.ts 2>&1 | tail -30",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Xuq2cL/route-planner && cat > test/cross-check.test.ts << 'EOF'\nimport { test } from \"node:test\";\nimport assert from \"node:assert/strict\";\nimport { cheapestRoute } from \"../src/planner.ts\";\n\n// Reference implementation mirroring the original naive algorithm.\ntype BestRoute = { cost: number; hops: number; depots: string[] };\nfunction sequenceKey(depots: readonly string[]): string { return depots.join(\"\\u0000\"); }\nfunction compareRoute(a: BestRoute, b: BestRoute): number {\n  if (a.cost !== b.cost) return a.cost - b.cost;\n  if (a.hops !== b.hops) return a.hops - b.hops;\n  return sequenceKey(a.depots).localeCompare(sequenceKey(b.depots));\n}\nfunction allDepotsRef(roads: any[], start: string, goal: string): string[] {\n  const depots = new Set<string>([start, goal]);\n  for (const road of roads) { depots.add(road.from); depots.add(road.to); }\n  return [...depots];\n}\nfunction referenceRoute(roads: any[], start: string, goal: string) {\n  const unvisited = new Set(allDepotsRef(roads, start, goal));\n  const best = new Map<string, BestRoute>();\n  best.set(start, { cost: 0, hops: 0, depots: [start] });\n  while (unvisited.size > 0) {\n    let current: string | undefined;\n    let currentBest: BestRoute | undefined;\n    for (const depot of unvisited) {\n      const route = best.get(depot);\n      if (!route) continue;\n      if (!currentBest || compareRoute(route, currentBest) < 0) { current = depot; currentBest = route; }\n    }\n    if (!current || !currentBest) return null;\n    if (current === goal) return { depots: currentBest.depots, cost: currentBest.cost };\n    unvisited.delete(current);\n    for (const road of roads.filter((r: any) => r.from === current)) {\n      if (!unvisited.has(road.to)) continue;\n      const next: BestRoute = { cost: currentBest.cost + road.cost, hops: currentBest.hops + 1, depots: [...currentBest.depots, road.to] };\n      const previous = best.get(road.to);\n      if (!previous || compareRoute(next, previous) < 0) best.set(road.to, next);\n    }\n  }\n  return null;\n}\n\nfunction rand(seed: number) { let s = seed; return () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff; }\n\ntest(\"matches reference algorithm on random graphs incl. zero-cost and unreachable\", () => {\n  for (let trial = 0; trial < 200; trial++) {\n    const rnd = rand(trial + 1);\n    const N = 4 + Math.floor(rnd() * 8);\n    const depots = Array.from({ length: N }, (_, i) => \"N\" + i);\n    const roads = [];\n    for (let i = 0; i < N; i++) {\n      for (let j = 0; j < N; j++) {\n        if (i === j) continue;\n        if (rnd() < 0.35) roads.push({ from: depots[i], to: depots[j], cost: Math.floor(rnd() * 4) }); // includes 0\n      }\n    }\n    const start = depots[0];\n    const goal = depots[N - 1];\n    const expected = referenceRoute(roads, start, goal);\n    const actual = cheapestRoute(roads, start, goal);\n    assert.deepEqual(actual, expected, `mismatch trial ${trial}: ${JSON.stringify({ expected, actual })}`);\n  }\n});\nEOF\nnode --test test/cross-check.test.ts 2>&1 | tail -20",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Xuq2cL/route-planner && rm -f test/bench.test.ts test/cross-check.test.ts && npm test 2>&1"
+          ],
+          "routingContext": false,
+          "premiumRequests": 1,
+          "modelMetrics": {
+            "claude-sonnet-5": {
+              "count": 19,
+              "cost": 1
+            }
+          },
+          "apiMs": 197727
+        }
+      }
+    },
+    {
+      "id": "session-store/claude-sonnet-5/r3/A",
+      "task": "session-store",
+      "model": "claude-sonnet-5",
+      "rep": 3,
+      "arm": "A",
+      "work": "evals/copilot/archive/2026-09-26-calibration-s2/session-store.claude-sonnet-5.r3.A/work",
+      "baseSha": "a81b6974ae95aa6d9aa67b64bd964205df834836",
+      "exit": 0,
+      "timedOut": false,
+      "wallMs": 41720,
+      "events": "evals/copilot/archive/2026-09-26-calibration-s2/session-store.claude-sonnet-5.r3.A/session-state/d2c03225-5ada-454a-a922-781feffca4f9/events.jsonl",
+      "stderrTail": "",
+      "archived": "evals/copilot/archive/2026-09-26-calibration-s2/session-store.claude-sonnet-5.r3.A",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/session-store.claude-sonnet-5.r3.A.events.jsonl",
+      "grade": {
+        "hidden": {
+          "pass": 4,
+          "total": 4,
+          "failed": []
+        },
+        "ownSuite": {
+          "pass": 3,
+          "total": 3
+        },
+        "diff": {
+          "filesTouched": 1,
+          "files": [
+            {
+              "path": "src/session-store.ts",
+              "add": 14,
+              "del": 1,
+              "kind": "src"
+            }
+          ],
+          "srcAdded": 14,
+          "srcRemoved": 1,
+          "testAdded": 0,
+          "testRemoved": 0,
+          "otherFiles": [],
+          "addedCommentLines": 4
+        },
+        "transcript": {
+          "toolCounts": {
+            "bash": 4,
+            "view": 5,
+            "edit": 1
+          },
+          "skills": [],
+          "tasks": [],
+          "ranTests": true,
+          "viewed": [
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-fGr76Z/session-store/src/session-store.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-fGr76Z/session-store/test/session-store.test.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-fGr76Z/session-store/src",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-fGr76Z/session-store/src/types.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-fGr76Z/session-store/src/size.ts"
+          ],
+          "bash": [
+            "find . -iname \"*.git\" -prune -o -type f \\( -iname \"*session*store*\" -o -iname \"*sessionstore*\" \\) -print 2>/dev/null | grep -v node_modules | head -50",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-fGr76Z/session-store && cat package.json 2>/dev/null | head -30; node --version",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-fGr76Z/session-store && npm test 2>&1",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-fGr76Z/session-store && node --experimental-strip-types -e '\nimport(\"./src/session-store.ts\").then(async ({SessionStore}) => {\n  const { sessionBytes } = await import(\"./src/size.ts\");\n  const s = (u,d) => ({userId:u,data:d,updatedAt:1});\n  const a = s(\"a\",\"aaaa\"), b = s(\"b\",\"bbbb\"), c = s(\"c\",\"cccc\");\n  const store = new SessionStore(sessionBytes(a)+sessionBytes(b));\n  store.set(\"a\", a); store.set(\"b\", b);\n  store.get(\"a\"); // touch a, making b the oldest\n  store.set(\"c\", c); // should evict b, not a\n  console.log(\"keys after hot-get:\", store.keys());\n\n  // memory creep test: overwrite same id repeatedly\n  const store2 = new SessionStore(sessionBytes(a) + 1000);\n  for (let i=0;i<50;i++) store2.set(\"a\", a);\n  console.log(\"sizeBytes after repeated overwrite:\", store2.sizeBytes, \"expected:\", sessionBytes(a));\n});\n'\n"
+          ],
+          "routingContext": false,
+          "premiumRequests": 1,
+          "modelMetrics": {
+            "claude-sonnet-5": {
+              "count": 9,
+              "cost": 1
+            }
+          },
+          "apiMs": 35566
+        }
+      }
+    },
+    {
+      "id": "settings-loader/claude-sonnet-5/r3/A",
+      "task": "settings-loader",
+      "model": "claude-sonnet-5",
+      "rep": 3,
+      "arm": "A",
+      "work": "evals/copilot/archive/2026-09-26-calibration-s2/settings-loader.claude-sonnet-5.r3.A/work",
+      "baseSha": "45a7b17af67a90206d43b834006923fc3b357347",
+      "exit": 0,
+      "timedOut": false,
+      "wallMs": 53111,
+      "events": "evals/copilot/archive/2026-09-26-calibration-s2/settings-loader.claude-sonnet-5.r3.A/session-state/ff441df8-a9e3-4c5a-bcc2-441fde84862a/events.jsonl",
+      "stderrTail": "",
+      "archived": "evals/copilot/archive/2026-09-26-calibration-s2/settings-loader.claude-sonnet-5.r3.A",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/settings-loader.claude-sonnet-5.r3.A.events.jsonl",
+      "grade": {
+        "hidden": {
+          "pass": 4,
+          "total": 4,
+          "failed": []
+        },
+        "ownSuite": {
+          "pass": 7,
+          "total": 7
+        },
+        "diff": {
+          "filesTouched": 5,
+          "files": [
+            {
+              "path": "README.md",
+              "add": 5,
+              "del": 1,
+              "kind": "other"
+            },
+            {
+              "path": "src/env.ts",
+              "add": 52,
+              "del": 0,
+              "kind": "src"
+            },
+            {
+              "path": "src/index.ts",
+              "add": 2,
+              "del": 0,
+              "kind": "src"
+            },
+            {
+              "path": "src/loader.ts",
+              "add": 6,
+              "del": 1,
+              "kind": "src"
+            },
+            {
+              "path": "test/loader.test.ts",
+              "add": 25,
+              "del": 0,
+              "kind": "test"
+            }
+          ],
+          "srcAdded": 60,
+          "srcRemoved": 1,
+          "testAdded": 25,
+          "testRemoved": 0,
+          "otherFiles": [
+            "README.md"
+          ],
+          "addedCommentLines": 6
+        },
+        "transcript": {
+          "toolCounts": {
+            "bash": 2,
+            "view": 9,
+            "create": 1,
+            "edit": 4
+          },
+          "skills": [],
+          "tasks": [],
+          "ranTests": true,
+          "viewed": [
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Foak0G/settings-loader",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Foak0G/settings-loader/src/loader.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Foak0G/settings-loader/src/schema.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Foak0G/settings-loader/src/merge.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Foak0G/settings-loader/src/files.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Foak0G/settings-loader/src/index.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Foak0G/settings-loader/test/loader.test.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Foak0G/settings-loader/test/data/service.json",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Foak0G/settings-loader/README.md"
+          ],
+          "bash": [
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Foak0G/settings-loader && find . -type f -not -path '*/node_modules/*' -not -path '*/.git/*' | head -100",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-Foak0G/settings-loader && npm test 2>&1"
+          ],
+          "routingContext": false,
+          "premiumRequests": 1,
+          "modelMetrics": {
+            "claude-sonnet-5": {
+              "count": 9,
+              "cost": 1
+            }
+          },
+          "apiMs": 48761
+        }
+      }
+    },
+    {
+      "id": "slug-registry/claude-sonnet-5/r3/A",
+      "task": "slug-registry",
+      "model": "claude-sonnet-5",
+      "rep": 3,
+      "arm": "A",
+      "work": "evals/copilot/archive/2026-09-26-calibration-s2/slug-registry.claude-sonnet-5.r3.A/work",
+      "baseSha": "e32a576d7ee0804d3d06966ee20ab69c6cfd9c48",
+      "exit": 0,
+      "timedOut": false,
+      "wallMs": 53522,
+      "events": "evals/copilot/archive/2026-09-26-calibration-s2/slug-registry.claude-sonnet-5.r3.A/session-state/6bfe234d-cef9-4165-8467-3697ada97676/events.jsonl",
+      "stderrTail": "",
+      "archived": "evals/copilot/archive/2026-09-26-calibration-s2/slug-registry.claude-sonnet-5.r3.A",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/slug-registry.claude-sonnet-5.r3.A.events.jsonl",
+      "grade": {
+        "hidden": {
+          "pass": 4,
+          "total": 4,
+          "failed": []
+        },
+        "ownSuite": {
+          "pass": 8,
+          "total": 8
+        },
+        "diff": {
+          "filesTouched": 4,
+          "files": [
+            {
+              "path": "README.md",
+              "add": 2,
+              "del": 0,
+              "kind": "other"
+            },
+            {
+              "path": "src/index.ts",
+              "add": 1,
+              "del": 1,
+              "kind": "src"
+            },
+            {
+              "path": "src/registry.ts",
+              "add": 27,
+              "del": 0,
+              "kind": "src"
+            },
+            {
+              "path": "test/slug.test.ts",
+              "add": 22,
+              "del": 1,
+              "kind": "test"
+            }
+          ],
+          "srcAdded": 28,
+          "srcRemoved": 1,
+          "testAdded": 22,
+          "testRemoved": 1,
+          "otherFiles": [
+            "README.md"
+          ],
+          "addedCommentLines": 6
+        },
+        "transcript": {
+          "toolCounts": {
+            "bash": 5,
+            "view": 8,
+            "edit": 5
+          },
+          "skills": [],
+          "tasks": [],
+          "ranTests": true,
+          "viewed": [
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-q6BkrO/slug-registry/src/slug.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-q6BkrO/slug-registry/src/registry.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-q6BkrO/slug-registry/src/articles.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-q6BkrO/slug-registry/src/index.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-q6BkrO/slug-registry/README.md",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-q6BkrO/slug-registry/test/slug.test.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-q6BkrO/slug-registry/src/unicode.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-q6BkrO/slug-registry/package.json"
+          ],
+          "bash": [
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-q6BkrO/slug-registry && find . -type f -not -path './node_modules/*' -not -path './.git/*' | head -100",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-q6BkrO/slug-registry && cat > /tmp/manualtest.mjs <<'EOF'\nimport { uniqueSlug } from \"./src/index.ts\";\nconsole.log(uniqueSlug(\"Café\", []));\nconsole.log(uniqueSlug(\"Café\", [\"cafe\"]));\nconsole.log(uniqueSlug(\"Café\", [\"cafe\", \"cafe-2\"]));\nconsole.log(uniqueSlug(\"***\", []));\nconsole.log(uniqueSlug(\"***\", [\"article\"]));\nconsole.log(uniqueSlug(\"alpha beta gamma delta epsilon\", [\"alpha-beta-gamma\"], { maxLength: 18 }));\nconsole.log(uniqueSlug(\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", [\"a\".repeat(58)+\"-2\"]));\nEOF\nnode /tmp/manualtest.mjs",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-q6BkrO/slug-registry && cat > ./manualtest.mjs <<'EOF'\nimport { uniqueSlug } from \"./src/index.ts\";\nconsole.log(uniqueSlug(\"Café\", []));\nconsole.log(uniqueSlug(\"Café\", [\"cafe\"]));\nconsole.log(uniqueSlug(\"Café\", [\"cafe\", \"cafe-2\"]));\nconsole.log(uniqueSlug(\"***\", []));\nconsole.log(uniqueSlug(\"***\", [\"article\"]));\nconsole.log(uniqueSlug(\"alpha beta gamma delta epsilon\", [\"alpha-beta-gamma\"], { maxLength: 18 }));\nconst longBase = \"a\".repeat(60);\nconsole.log(uniqueSlug(longBase, [longBase]).length, uniqueSlug(longBase, [longBase]));\nEOF\nnode ./manualtest.mjs; rm ./manualtest.mjs",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-q6BkrO/slug-registry && npm test",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-q6BkrO/slug-registry && npm test"
+          ],
+          "routingContext": false,
+          "premiumRequests": 1,
+          "modelMetrics": {
+            "claude-sonnet-5": {
+              "count": 12,
+              "cost": 1
+            }
+          },
+          "apiMs": 48964
+        }
+      }
+    },
+    {
+      "id": "stock-diff/claude-sonnet-5/r3/A",
+      "task": "stock-diff",
+      "model": "claude-sonnet-5",
+      "rep": 3,
+      "arm": "A",
+      "work": "evals/copilot/archive/2026-09-26-calibration-s2/stock-diff.claude-sonnet-5.r3.A/work",
+      "baseSha": "380820b2fb78f3442d0eb6087af3c68be3ae0a6b",
+      "exit": 0,
+      "timedOut": false,
+      "wallMs": 39520,
+      "events": "evals/copilot/archive/2026-09-26-calibration-s2/stock-diff.claude-sonnet-5.r3.A/session-state/0837955e-78e9-4b5d-bdbc-10b405f8c2be/events.jsonl",
+      "stderrTail": "",
+      "archived": "evals/copilot/archive/2026-09-26-calibration-s2/stock-diff.claude-sonnet-5.r3.A",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/stock-diff.claude-sonnet-5.r3.A.events.jsonl",
+      "grade": {
+        "hidden": {
+          "pass": 4,
+          "total": 4,
+          "failed": []
+        },
+        "ownSuite": {
+          "pass": 3,
+          "total": 3
+        },
+        "diff": {
+          "filesTouched": 1,
+          "files": [
+            {
+              "path": "src/diff.ts",
+              "add": 48,
+              "del": 49,
+              "kind": "src"
+            }
+          ],
+          "srcAdded": 48,
+          "srcRemoved": 49,
+          "testAdded": 0,
+          "testRemoved": 0,
+          "otherFiles": [],
+          "addedCommentLines": 0
+        },
+        "transcript": {
+          "toolCounts": {
+            "grep": 1,
+            "view": 2,
+            "edit": 1,
+            "bash": 2
+          },
+          "skills": [],
+          "tasks": [],
+          "ranTests": true,
+          "viewed": [
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-2ExIkA/stock-diff/src/diff.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-2ExIkA/stock-diff/src/normalize.ts"
+          ],
+          "bash": [
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-2ExIkA/stock-diff && cat package.json | grep -A3 '\"scripts\"'",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-2ExIkA/stock-diff && npm test 2>&1 | tail -60"
+          ],
+          "routingContext": false,
+          "premiumRequests": 1,
+          "modelMetrics": {
+            "claude-sonnet-5": {
+              "count": 7,
+              "cost": 1
+            }
+          },
+          "apiMs": 34913
+        }
+      }
+    },
+    {
+      "id": "usage-exports/claude-sonnet-5/r3/A",
+      "task": "usage-exports",
+      "model": "claude-sonnet-5",
+      "rep": 3,
+      "arm": "A",
+      "work": "evals/copilot/archive/2026-09-26-calibration-s2/usage-exports.claude-sonnet-5.r3.A/work",
+      "baseSha": "6bb1dde87136be3356c680dc1dae312f1fd2bbc8",
+      "exit": 0,
+      "timedOut": false,
+      "wallMs": 65426,
+      "events": "evals/copilot/archive/2026-09-26-calibration-s2/usage-exports.claude-sonnet-5.r3.A/session-state/a3102dc4-e0d8-455a-9e96-918fe256fb0e/events.jsonl",
+      "stderrTail": "",
+      "archived": "evals/copilot/archive/2026-09-26-calibration-s2/usage-exports.claude-sonnet-5.r3.A",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/usage-exports.claude-sonnet-5.r3.A.events.jsonl",
+      "grade": {
+        "hidden": {
+          "pass": 2,
+          "total": 2,
+          "failed": []
+        },
+        "ownSuite": {
+          "pass": 3,
+          "total": 3
+        },
+        "diff": {
+          "filesTouched": 4,
+          "files": [
+            {
+              "path": "src/billingFeed.ts",
+              "add": 7,
+              "del": 16,
+              "kind": "src"
+            },
+            {
+              "path": "src/csv.ts",
+              "add": 6,
+              "del": 19,
+              "kind": "src"
+            },
+            {
+              "path": "src/json.ts",
+              "add": 5,
+              "del": 19,
+              "kind": "src"
+            },
+            {
+              "path": "src/rollup.ts",
+              "add": 60,
+              "del": 0,
+              "kind": "src"
+            }
+          ],
+          "srcAdded": 78,
+          "srcRemoved": 54,
+          "testAdded": 0,
+          "testRemoved": 0,
+          "otherFiles": [],
+          "addedCommentLines": 11
+        },
+        "transcript": {
+          "toolCounts": {
+            "bash": 7,
+            "view": 8,
+            "create": 4
+          },
+          "skills": [],
+          "tasks": [],
+          "ranTests": true,
+          "viewed": [
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-hmgxZa/usage-exports",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-hmgxZa/usage-exports/src/csv.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-hmgxZa/usage-exports/src/json.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-hmgxZa/usage-exports/src/billingFeed.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-hmgxZa/usage-exports/src/types.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-hmgxZa/usage-exports/src/manifest.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-hmgxZa/usage-exports/test/exports.test.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-hmgxZa/usage-exports/package.json"
+          ],
+          "bash": [
+            "find . -type f -not -path './.git/*' | head -200",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-hmgxZa/usage-exports && node --version && npm test 2>&1 | tail -30",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-hmgxZa/usage-exports/src && mv csv.ts.new csv.ts",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-hmgxZa/usage-exports/src && mv json.ts.new json.ts && mv billingFeed.ts.new billingFeed.ts",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-hmgxZa/usage-exports && npm test 2>&1 | tail -30",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-hmgxZa/usage-exports && which tsc npx 2>/dev/null; npx --no-install tsc --version 2>&1 | head -5",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-hmgxZa/usage-exports && git status --short && git --no-pager diff --stat"
+          ],
+          "routingContext": false,
+          "premiumRequests": 1,
+          "modelMetrics": {
+            "claude-sonnet-5": {
+              "count": 14,
+              "cost": 1
+            }
+          },
+          "apiMs": 60107
+        }
+      }
+    },
+    {
+      "id": "catalog-cache/claude-sonnet-5/r3/A",
+      "task": "catalog-cache",
+      "model": "claude-sonnet-5",
+      "rep": 3,
+      "arm": "A",
+      "work": "evals/copilot/archive/2026-09-26-calibration-s2/catalog-cache.claude-sonnet-5.r3.A/work",
+      "baseSha": "4141fe5a4f4e9b4bde457b8d03824cc5b6e4ec50",
+      "exit": 0,
+      "timedOut": false,
+      "wallMs": 78976,
+      "events": "evals/copilot/archive/2026-09-26-calibration-s2/catalog-cache.claude-sonnet-5.r3.A/session-state/77f5b04c-0eb5-4aa5-b3d9-f75406db68ea/events.jsonl",
+      "stderrTail": "",
+      "archived": "evals/copilot/archive/2026-09-26-calibration-s2/catalog-cache.claude-sonnet-5.r3.A",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/catalog-cache.claude-sonnet-5.r3.A.events.jsonl",
+      "grade": {
+        "hidden": {
+          "pass": 4,
+          "total": 4,
+          "failed": []
+        },
+        "ownSuite": {
+          "pass": 5,
+          "total": 5
+        },
+        "diff": {
+          "filesTouched": 2,
+          "files": [
+            {
+              "path": "src/catalog-cache.ts",
+              "add": 14,
+              "del": 1,
+              "kind": "src"
+            },
+            {
+              "path": "test/catalog-cache.test.ts",
+              "add": 39,
+              "del": 0,
+              "kind": "test"
+            }
+          ],
+          "srcAdded": 14,
+          "srcRemoved": 1,
+          "testAdded": 39,
+          "testRemoved": 0,
+          "otherFiles": [],
+          "addedCommentLines": 4
+        },
+        "transcript": {
+          "toolCounts": {
+            "bash": 2,
+            "view": 6,
+            "edit": 2
+          },
+          "skills": [],
+          "tasks": [],
+          "ranTests": true,
+          "viewed": [
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-seVyI2/catalog-cache/src/catalog-cache.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-seVyI2/catalog-cache/src/upstream.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-seVyI2/catalog-cache/src/types.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-seVyI2/catalog-cache/src/index.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-seVyI2/catalog-cache/test/catalog-cache.test.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-seVyI2/catalog-cache/README.md"
+          ],
+          "bash": [
+            "find /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-seVyI2/catalog-cache -type f -not -path '*/node_modules/*' -not -path '*/.git/*' | head -100",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-suqP5w/ws-seVyI2/catalog-cache && npm test 2>&1 | tail -60"
+          ],
+          "routingContext": false,
+          "premiumRequests": 1,
+          "modelMetrics": {
+            "claude-sonnet-5": {
+              "count": 8,
+              "cost": 1
+            }
+          },
+          "apiMs": 74656
+        }
+      }
+    },
+    {
+      "id": "payout-split/claude-sonnet-5/r1/A",
+      "task": "payout-split",
+      "model": "claude-sonnet-5",
+      "rep": 1,
+      "arm": "A",
+      "work": "evals/copilot/archive/2026-09-26-calibration-payout/payout-split.claude-sonnet-5.r1.A/work",
+      "baseSha": "a89051b3add9663e905bef687aa2144e36dbb430",
+      "exit": 0,
+      "timedOut": false,
+      "wallMs": 80467,
+      "events": "evals/copilot/archive/2026-09-26-calibration-payout/payout-split.claude-sonnet-5.r1.A/session-state/2809197a-6b27-4550-8ab9-99909d6e8d01/events.jsonl",
+      "stderrTail": "",
+      "archived": "evals/copilot/archive/2026-09-26-calibration-payout/payout-split.claude-sonnet-5.r1.A",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/payout-split.claude-sonnet-5.r1.A.events.jsonl",
+      "grade": {
+        "hidden": {
+          "pass": 3,
+          "total": 4,
+          "failed": [
+            "negative refund clawbacks also sum exactly"
+          ]
+        },
+        "ownSuite": {
+          "pass": 4,
+          "total": 4
+        },
+        "diff": {
+          "filesTouched": 1,
+          "files": [
+            {
+              "path": "src/split.ts",
+              "add": 47,
+              "del": 3,
+              "kind": "src"
+            }
+          ],
+          "srcAdded": 47,
+          "srcRemoved": 3,
+          "testAdded": 0,
+          "testRemoved": 0,
+          "otherFiles": [],
+          "addedCommentLines": 10
+        },
+        "transcript": {
+          "toolCounts": {
+            "bash": 5,
+            "view": 10,
+            "edit": 3
+          },
+          "skills": [],
+          "tasks": [],
+          "ranTests": true,
+          "viewed": [
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-Cusypq/payout-split/src/split.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-Cusypq/payout-split/src/types.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-Cusypq/payout-split/src/recipients.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-Cusypq/payout-split/test/split.test.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-Cusypq/payout-split/src/reconciliation.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-Cusypq/payout-split/src/summary.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-Cusypq/payout-split/src/ledger.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-Cusypq/payout-split/src/batches.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-Cusypq/payout-split/src/statements.ts"
+          ],
+          "bash": [
+            "find . -type f -not -path \"./node_modules/*\" -not -path \"./.git/*\" | head -100",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-Cusypq/payout-split && grep -rn \"weight\" --include=*.ts . | grep -v node_modules",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-Cusypq/payout-split && cat package.json",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-Cusypq/payout-split && npm test 2>&1",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-Cusypq/payout-split && node --experimental-strip-types -e '\nimport(\"./src/split.ts\").then(({ splitPayout }) => {\n  const r = [{id:\"a\",weight:1},{id:\"b\",weight:1},{id:\"c\",weight:1}];\n  console.log(splitPayout(100, r)); // 33,33,34 sums to 100\n  console.log(splitPayout(-100, r)); // refund, sums to -100\n  console.log(splitPayout(10, [{id:\"a\",weight:1},{id:\"b\",weight:2},{id:\"c\",weight:3}]));\n});\n' 2>&1"
+          ],
+          "routingContext": false,
+          "premiumRequests": 1,
+          "modelMetrics": {
+            "claude-sonnet-5": {
+              "count": 13,
+              "cost": 1
+            }
+          },
+          "apiMs": 74170
+        }
+      }
+    },
+    {
+      "id": "payout-split/claude-sonnet-5/r2/A",
+      "task": "payout-split",
+      "model": "claude-sonnet-5",
+      "rep": 2,
+      "arm": "A",
+      "work": "evals/copilot/archive/2026-09-26-calibration-payout/payout-split.claude-sonnet-5.r2.A/work",
+      "baseSha": "a89051b3add9663e905bef687aa2144e36dbb430",
+      "exit": 0,
+      "timedOut": false,
+      "wallMs": 39929,
+      "events": "evals/copilot/archive/2026-09-26-calibration-payout/payout-split.claude-sonnet-5.r2.A/session-state/0586a699-4d6b-4053-98da-cbe360c57234/events.jsonl",
+      "stderrTail": "",
+      "archived": "evals/copilot/archive/2026-09-26-calibration-payout/payout-split.claude-sonnet-5.r2.A",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/payout-split.claude-sonnet-5.r2.A.events.jsonl",
+      "grade": {
+        "hidden": {
+          "pass": 4,
+          "total": 4,
+          "failed": []
+        },
+        "ownSuite": {
+          "pass": 4,
+          "total": 4
+        },
+        "diff": {
+          "filesTouched": 1,
+          "files": [
+            {
+              "path": "src/split.ts",
+              "add": 28,
+              "del": 2,
+              "kind": "src"
+            }
+          ],
+          "srcAdded": 28,
+          "srcRemoved": 2,
+          "testAdded": 0,
+          "testRemoved": 0,
+          "otherFiles": [],
+          "addedCommentLines": 4
+        },
+        "transcript": {
+          "toolCounts": {
+            "bash": 3,
+            "view": 8,
+            "edit": 1
+          },
+          "skills": [],
+          "tasks": [],
+          "ranTests": true,
+          "viewed": [
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-eCJvxh/payout-split",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-eCJvxh/payout-split/src/split.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-eCJvxh/payout-split/src",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-eCJvxh/payout-split/test",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-eCJvxh/payout-split/README.md",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-eCJvxh/payout-split/src/recipients.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-eCJvxh/payout-split/src/types.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-eCJvxh/payout-split/test/split.test.ts"
+          ],
+          "bash": [
+            "grep -rn \"split\" --include=*.* -l . | grep -v node_modules | grep -v test",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-eCJvxh/payout-split && npm test 2>&1",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-eCJvxh/payout-split && node --experimental-strip-types -e '\nimport(\"./src/split.ts\").then(({splitPayout}) => {\n  const recipients = [{id:\"a\",weight:3},{id:\"b\",weight:1},{id:\"c\",weight:1}];\n  for (const amt of [1000, 1001, 999, -1001, 7, -7]) {\n    const shares = splitPayout(amt, recipients);\n    const sum = shares.reduce((s,x)=>s+x.cents,0);\n    console.log(amt, JSON.stringify(shares), \"sum=\",sum, sum===amt?\"OK\":\"MISMATCH\");\n  }\n});\n' 2>&1"
+          ],
+          "routingContext": false,
+          "premiumRequests": 1,
+          "modelMetrics": {
+            "claude-sonnet-5": {
+              "count": 8,
+              "cost": 1
+            }
+          },
+          "apiMs": 34274
+        }
+      }
+    },
+    {
+      "id": "payout-split/claude-sonnet-5/r3/A",
+      "task": "payout-split",
+      "model": "claude-sonnet-5",
+      "rep": 3,
+      "arm": "A",
+      "work": "evals/copilot/archive/2026-09-26-calibration-payout/payout-split.claude-sonnet-5.r3.A/work",
+      "baseSha": "a89051b3add9663e905bef687aa2144e36dbb430",
+      "exit": 0,
+      "timedOut": false,
+      "wallMs": 38556,
+      "events": "evals/copilot/archive/2026-09-26-calibration-payout/payout-split.claude-sonnet-5.r3.A/session-state/b6d4e0cb-efe5-4a1c-958b-a46af8a93c98/events.jsonl",
+      "stderrTail": "",
+      "archived": "evals/copilot/archive/2026-09-26-calibration-payout/payout-split.claude-sonnet-5.r3.A",
+      "eventsExtract": "evals/copilot/results/2026-09-26-calibration/payout-split.claude-sonnet-5.r3.A.events.jsonl",
+      "grade": {
+        "hidden": {
+          "pass": 4,
+          "total": 4,
+          "failed": []
+        },
+        "ownSuite": {
+          "pass": 4,
+          "total": 4
+        },
+        "diff": {
+          "filesTouched": 1,
+          "files": [
+            {
+              "path": "src/split.ts",
+              "add": 27,
+              "del": 4,
+              "kind": "src"
+            }
+          ],
+          "srcAdded": 27,
+          "srcRemoved": 4,
+          "testAdded": 0,
+          "testRemoved": 0,
+          "otherFiles": [],
+          "addedCommentLines": 2
+        },
+        "transcript": {
+          "toolCounts": {
+            "bash": 3,
+            "view": 10,
+            "edit": 1
+          },
+          "skills": [],
+          "tasks": [],
+          "ranTests": true,
+          "viewed": [
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-rM3JAQ/payout-split/src/split.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-rM3JAQ/payout-split/test/split.test.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-rM3JAQ/payout-split/src/types.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-rM3JAQ/payout-split/src/recipients.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-rM3JAQ/payout-split/src/summary.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-rM3JAQ/payout-split/src/reconciliation.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-rM3JAQ/payout-split/src/ledger.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-rM3JAQ/payout-split/src/batches.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-rM3JAQ/payout-split/src/statements.ts",
+            "/private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-rM3JAQ/payout-split/README.md"
+          ],
+          "bash": [
+            "find /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-rM3JAQ/payout-split -type f -not -path '*/node_modules/*' -not -path '*/.git/*' | head -200",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-rM3JAQ/payout-split && cat package.json && npm test 2>&1 | tail -60",
+            "cd /private/var/folders/lg/drsdlj9s0d9cgvj43kszxgvm0000gn/T/ws-KTKdZ6/ws-rM3JAQ/payout-split && node --experimental-strip-types -e '\nimport(\"./src/split.ts\").then(({splitPayout}) => {\n  const recipients = [{id:\"a\",weight:1},{id:\"b\",weight:1},{id:\"c\",weight:1}];\n  console.log(JSON.stringify(splitPayout(100, recipients)));\n  console.log(JSON.stringify(splitPayout(-100, recipients)));\n  console.log(JSON.stringify(splitPayout(1, recipients)));\n  const sum = splitPayout(100, recipients).reduce((s,x)=>s+x.cents,0);\n  console.log(\"sum100=\", sum);\n});\n'\n"
+          ],
+          "routingContext": false,
+          "premiumRequests": 1,
+          "modelMetrics": {
+            "claude-sonnet-5": {
+              "count": 7,
+              "cost": 1
+            }
+          },
+          "apiMs": 32960
         }
       }
     }

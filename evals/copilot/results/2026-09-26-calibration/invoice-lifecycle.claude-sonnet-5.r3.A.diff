@@ -1,0 +1,109 @@
+diff --git a/src/invoice.ts b/src/invoice.ts
+index 38e5606..55de02e 100644
+--- a/src/invoice.ts
++++ b/src/invoice.ts
+@@ -1,52 +1,85 @@
++export type InvoiceStatus = "draft" | "sent" | "paid" | "voided" | "refunded";
++
+ export type Invoice = {
+   id: string;
+   customerId: string;
+   cents: number;
+-  sent: boolean;
+-  paid: boolean;
+-  voided: boolean;
+-  refunded: boolean;
++  status: InvoiceStatus;
+   sentAt?: string;
+   paidAt?: string;
+   voidedAt?: string;
+   refundedAt?: string;
+ };
+ 
++type Transition = {
++  /** Statuses from which this transition is allowed to run. */
++  from: InvoiceStatus[];
++  /** Status a successful transition moves the invoice into. */
++  to: InvoiceStatus;
++  /** Statuses that already satisfy the transition, so it becomes a no-op. */
++  noop: InvoiceStatus[];
++  /** Error raised when the invoice is in a status outside `from`/`noop`. */
++  error: string;
++  /** Timestamp field stamped on the invoice when the transition applies. */
++  at: keyof Pick<Invoice, "sentAt" | "paidAt" | "voidedAt" | "refundedAt">;
++};
++
++function applyTransition(invoice: Invoice, at: string, transition: Transition): Invoice {
++  if (transition.noop.includes(invoice.status)) return invoice;
++  if (!transition.from.includes(invoice.status)) throw new Error(transition.error);
++  return { ...invoice, status: transition.to, [transition.at]: at };
++}
++
+ export function createInvoice(id: string, customerId: string, cents: number): Invoice {
+   if (cents <= 0) throw new Error("invoice total must be positive");
+-  return { id, customerId, cents, sent: false, paid: false, voided: false, refunded: false };
++  return { id, customerId, cents, status: "draft" };
+ }
+ 
+ export function sendInvoice(invoice: Invoice, at: string): Invoice {
+-  if (invoice.voided) throw new Error("cannot send voided invoice");
+-  if (invoice.sent) return invoice;
+-  return { ...invoice, sent: true, sentAt: at };
++  return applyTransition(invoice, at, {
++    from: ["draft"],
++    to: "sent",
++    noop: ["sent", "paid", "refunded"],
++    error: "cannot send voided invoice",
++    at: "sentAt",
++  });
+ }
+ 
+ export function payInvoice(invoice: Invoice, at: string): Invoice {
+-  if (invoice.voided) throw new Error("cannot pay voided invoice");
+-  if (invoice.paid) return invoice;
+-  return { ...invoice, paid: true, paidAt: at };
++  return applyTransition(invoice, at, {
++    from: ["draft", "sent"],
++    to: "paid",
++    noop: ["paid", "refunded"],
++    error: "cannot pay voided invoice",
++    at: "paidAt",
++  });
+ }
+ 
+ export function voidInvoice(invoice: Invoice, at: string): Invoice {
+-  if (invoice.paid) throw new Error("cannot void paid invoice");
+-  if (invoice.voided) return invoice;
+-  return { ...invoice, voided: true, voidedAt: at };
++  return applyTransition(invoice, at, {
++    from: ["draft", "sent"],
++    to: "voided",
++    noop: ["voided"],
++    error: "cannot void paid invoice",
++    at: "voidedAt",
++  });
+ }
+ 
+ export function refundInvoice(invoice: Invoice, at: string): Invoice {
+-  if (!invoice.paid) throw new Error("cannot refund unpaid invoice");
+-  if (invoice.refunded) return invoice;
+-  return { ...invoice, refunded: true, refundedAt: at };
++  return applyTransition(invoice, at, {
++    from: ["paid"],
++    to: "refunded",
++    noop: ["refunded"],
++    error: "cannot refund unpaid invoice",
++    at: "refundedAt",
++  });
+ }
+ 
+ export function invoiceSummary(invoice: Invoice) {
+-  const status = invoice.refunded ? "refunded" : invoice.voided ? "voided" : invoice.paid ? "paid" : invoice.sent ? "sent" : "draft";
+   return {
+     id: invoice.id,
+     customerId: invoice.customerId,
+     cents: invoice.cents,
+-    status,
++    status: invoice.status,
+   };
+ }

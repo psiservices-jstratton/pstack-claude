@@ -1,0 +1,94 @@
+diff --git a/README.md b/README.md
+index a64cacd..5e7204f 100644
+--- a/README.md
++++ b/README.md
+@@ -2,4 +2,6 @@
+ 
+ Creates article URL slugs. Slugs are lowercase ASCII, accents are transliterated, non-alphanumeric runs become a single dash, edge dashes are trimmed, and empty results use `article`. Slugs are capped at 60 characters and prefer to stop at a word boundary.
+ 
++`uniqueSlug(title, existing)` builds a slug with the same rules and, on collision with an entry in `existing`, appends `-2`, `-3`, etc., truncating the base as needed to keep the final slug within the length cap.
++
+ Run with `npm test` on Node 24.
+diff --git a/src/index.ts b/src/index.ts
+index 990d397..02e84a6 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -1,5 +1,5 @@
+ export { createArticle } from "./articles.ts";
+-export { articlePath } from "./registry.ts";
++export { articlePath, uniqueSlug } from "./registry.ts";
+ export { slugify, truncateSlug } from "./slug.ts";
+ export type { Article } from "./articles.ts";
+ export type { SlugOptions } from "./slug.ts";
+diff --git a/src/registry.ts b/src/registry.ts
+index bc10d7e..00a65c2 100644
+--- a/src/registry.ts
++++ b/src/registry.ts
+@@ -1,3 +1,30 @@
++import { slugify, truncateSlug, type SlugOptions } from "./slug.ts";
++
+ export function articlePath(slug: string): string {
+   return `/articles/${slug}`;
+ }
++
++/**
++ * Builds a slug for `title` using the same rules as `slugify`, then
++ * disambiguates it against `existing` slugs by appending `-2`, `-3`, etc.,
++ * truncating the base slug as needed so the final result stays within
++ * `maxLength`.
++ */
++export function uniqueSlug(
++  title: string,
++  existing: Iterable<string>,
++  options: SlugOptions = {},
++): string {
++  const maxLength = options.maxLength ?? 60;
++  const taken = new Set(existing);
++  const base = slugify(title, options);
++  if (!taken.has(base)) return base;
++
++  for (let n = 2; ; n++) {
++    const suffix = `-${n}`;
++    const room = maxLength - suffix.length;
++    const trimmedBase = base.length > room ? truncateSlug(base, room) : base;
++    const candidate = `${trimmedBase}${suffix}`;
++    if (!taken.has(candidate)) return candidate;
++  }
++}
+diff --git a/test/slug.test.ts b/test/slug.test.ts
+index fc59889..550b735 100644
+--- a/test/slug.test.ts
++++ b/test/slug.test.ts
+@@ -1,6 +1,6 @@
+ import { test } from "node:test";
+ import assert from "node:assert/strict";
+-import { articlePath, createArticle, slugify } from "../src/index.ts";
++import { articlePath, createArticle, slugify, uniqueSlug } from "../src/index.ts";
+ 
+ test("normalizes punctuation and accents", () => {
+   assert.equal(slugify("Crème brûlée & Café"), "creme-brulee-cafe");
+@@ -20,3 +20,24 @@ test("creates article records with paths", () => {
+   assert.equal(article.slug, "roadmap-q4-launch");
+   assert.equal(articlePath(article.slug), "/articles/roadmap-q4-launch");
+ });
++
++test("returns the plain slug when there is no collision", () => {
++  assert.equal(uniqueSlug("Café", []), "cafe");
++});
++
++test("appends an incrementing suffix on collisions", () => {
++  assert.equal(uniqueSlug("Café", ["cafe"]), "cafe-2");
++  assert.equal(uniqueSlug("Café", ["cafe", "cafe-2"]), "cafe-3");
++});
++
++test("uses the fallback slug and disambiguates it too", () => {
++  assert.equal(uniqueSlug("***", []), "article");
++  assert.equal(uniqueSlug("***", ["article"]), "article-2");
++});
++
++test("keeps the disambiguated slug within maxLength", () => {
++  const longBase = "a".repeat(60);
++  const slug = uniqueSlug(longBase, [longBase]);
++  assert.equal(slug, `${"a".repeat(58)}-2`);
++  assert.ok(slug.length <= 60);
++});
