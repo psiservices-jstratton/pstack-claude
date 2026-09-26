@@ -4,10 +4,11 @@
 Usage: copilot-tui.py <workdir> <message> [copilot args...]
 
 Starts `copilot` in <workdir> on a pty, answers the terminal queries its TUI
-sends, trusts the folder if asked, types <message> once the prompt is up,
-and waits until the session's events.jsonl records the end of that turn. It accepts a pending ask_user or permission prompt with
-Enter, then stops the CLI. Prints the events.jsonl path. COPILOT_HOME must be
-set; the caller isolates it.
+sends, trusts the folder and declines the app install offer if asked, types
+<message> once the prompt is up, and waits until the session's events.jsonl
+records the end of that turn. It accepts a pending ask_user or permission
+prompt with Enter, then stops the CLI. Prints the events.jsonl path.
+COPILOT_HOME must be set; the caller isolates it.
 """
 import fcntl
 import json
@@ -74,6 +75,7 @@ def main():
     typed = 0
     enters = 0
     trusted = False
+    declined = False
     prompt_at = None
     path = None
     answered = set()
@@ -105,6 +107,15 @@ def main():
                 debug("trusted folder")
                 buf = b""
                 prompt_at = None
+                continue
+            # A fresh home offers to install the Copilot app; Enter would accept.
+            if not declined and b"Install it now?" in screen:
+                time.sleep(0.5)
+                os.write(fd, b"n")
+                declined = True
+                buf = b""
+                prompt_at = None
+                debug("declined the app install offer")
                 continue
             if prompt_at is None and b"? help" in screen:
                 prompt_at = time.time()
