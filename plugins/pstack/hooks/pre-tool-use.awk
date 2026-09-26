@@ -164,7 +164,34 @@ function safe_arg(a,    p, n, seg, i) {
   p = a
   if (p ~ /^[^\/]*=\//) sub(/^[^\/]*=/, "", p)
   if (substr(p, 1, 1) != "/") return 1
+  if (inside(p)) return 1
+  return inside(resolve(p))
+}
+
+function inside(p) {
   return p == cwd || under(p, cwd) || under(p, root) || under(p, real)
+}
+
+# Copilot reports cwd as a real path (/private/tmp on macOS), while the agent
+# may write the path it was given. Resolves the longest existing prefix of p.
+# p holds no single quote, so quoting it for the shell is safe.
+function resolve(p,    d, rest, cmd, out, i) {
+  d = p
+  rest = ""
+  while (d != "" && d != "/") {
+    cmd = "cd '" d "' 2>/dev/null && pwd -P"
+    out = ""
+    if ((cmd | getline out) > 0 && out != "") {
+      close(cmd)
+      return out rest
+    }
+    close(cmd)
+    i = length(d)
+    while (i > 0 && substr(d, i, 1) != "/") i--
+    rest = substr(d, i) rest
+    d = substr(d, 1, i - 1)
+  }
+  return p
 }
 
 # Splits cmd into T[1..n] on spaces. A word is plain, from a strict safe set, or

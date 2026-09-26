@@ -355,6 +355,21 @@ describe("PreToolUse vendored script runs", () => {
     test(`stays silent for ${name}`, () => expect(run(bash(command), env)).toEqual(quiet));
   }
 
+  // Copilot sends cwd as a real path (/private/tmp on macOS) while the agent
+  // passes the path it knows.
+  test("resolves a symlinked argument path against the real cwd", () => {
+    const link = join(home, "linked-work");
+    symlinkSync(workspace, link);
+    try {
+      expect(run(bash(`sh ${log} ${link}/decisions.md`, realpathSync(workspace)), env).out).toBe(allow);
+      expect(run(bash(`sh ${log} ${link}/new/dir/decisions.md`, realpathSync(workspace)), env).out).toBe(allow);
+      expect(run(bash(`sh ${log} ${join(home, "elsewhere.md")}`, realpathSync(workspace)), env)).toEqual(quiet);
+      expect(run(bash(`sh ${log} '${link}/x y.md'`, realpathSync(workspace)), env).out).toBe(allow);
+    } finally {
+      rmSync(link);
+    }
+  });
+
   test("stays silent when the plugin sits inside the workspace", () => {
     expect(run(bash(`node ${find}`, root), env)).toEqual(quiet);
     expect(run(bash(`node ${find}`, join(root, "..")), env)).toEqual(quiet);
