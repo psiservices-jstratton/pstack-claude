@@ -15,16 +15,26 @@
 #   7. without --allow-all-paths, and with the temp dir outside the sandbox, the
 #      saved model choices reach the session with no read of the sheet, and a
 #      plugin playbook loads, with no path-access request at all
-#   8. opt-in, SMOKE_GITHUB=owner/repo@ref: check 7 again on a GitHub
-#      marketplace install under $COPILOT_HOME/installed-plugins (pushed code)
+#   8. the PreToolUse hook denies a pstack:* task call on an off-sheet model and
+#      a create that would write a malformed sheet, and runs a vendored script
+#      with no --allow-all-tools and no permission request
+#   9. a second plugin's sessionStart context reaches the model next to pstack's
+#      (github/copilot-cli#3589)
+#  10. a -p resume fires the hook again with source "resume"
+#  11. interactive, through tests/copilot-tui.py: a slash command as the first
+#      message gets the routing context on that turn, and an interactive resume
+#      keeps exactly one routing block
+#  12. opt-in, SMOKE_GITHUB=owner/repo@ref: checks 7 and 8's script run again on
+#      a GitHub marketplace install under $COPILOT_HOME/installed-plugins
 #
-# Needs the `copilot` CLI signed in, `jq`, and network. Each probe is one
-# short -p session (about 7 premium requests in all with the default model).
-# Skips with exit 0 when `copilot` is missing. CI does not run it.
+# Needs the `copilot` CLI signed in, `jq`, and network, and python3 for check
+# 11 (skipped without it). Each probe is one short session, about 20 premium
+# requests in all with the defaults. Skips with exit 0 when `copilot` is
+# missing. CI does not run it.
 #
 #   tests/copilot-smoke.sh            # default probe model claude-haiku-4.5
 #   SMOKE_MODEL=gpt-5-mini tests/copilot-smoke.sh
-#   SMOKE_SETUP_MODEL=claude-sonnet-5 tests/copilot-smoke.sh   # setup probes 5 and 6
+#   SMOKE_SETUP_MODELS="gpt-5.4-mini claude-sonnet-5" tests/copilot-smoke.sh   # setup probes 5 and 6, once per model
 #   KEEP=1 tests/copilot-smoke.sh     # keep the temp COPILOT_HOME for inspection
 #   SMOKE_GITHUB=psiservices-jstratton/pstack-claude@copilot-build tests/copilot-smoke.sh
 set -euo pipefail
@@ -37,10 +47,10 @@ command -v jq >/dev/null 2>&1 || { echo "FAIL: jq is required" >&2; exit 1; }
 
 repo="$(cd "$(dirname "$0")/.." && pwd -P)"
 model="${SMOKE_MODEL:-claude-haiku-4.5}"
-# The setup probes (5 and 6) need a model that follows setup-pstack over a
-# request to "save the sheet"; claude-haiku-4.5 wrote guessed models in about
-# half its runs.
-setup_model="${SMOKE_SETUP_MODEL:-gpt-5.4-mini}"
+# The setup probes (5 and 6) run once per model here. They need a model that
+# follows setup-pstack over a request to "save the sheet"; claude-haiku-4.5
+# wrote guessed models in about half its runs.
+setup_models="${SMOKE_SETUP_MODELS:-${SMOKE_SETUP_MODEL:-gpt-5.4-mini claude-sonnet-5}}"
 root="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/pstack-copilot-smoke.XXXXXX")" && pwd -P)"
 home="$root/home"
 work="$root/inventory-service"
@@ -55,6 +65,8 @@ export COPILOT_HOME="$home" HOME="$user"
 failures=0
 pass() { printf 'ok: %s\n' "$1"; }
 fail() { printf 'FAIL: %s\n' "$1"; failures=$((failures + 1)); }
+cli_version="$(copilot --version 2>/dev/null | head -1)"
+echo "copilot: $cli_version"
 
 # Run one -p session from the scratch workdir on $PROBE_MODEL, else $model;
 # print its events.jsonl path.
@@ -144,65 +156,78 @@ else
 fi
 rm "$home/pstack-models.md"
 
-# 5. No model sheet: a multi-model skill must run setup-pstack before any fan-out.
-# The task tool is withheld so the probe cannot spend a panel.
-events="$(PROBE_MODEL=$setup_model probe --allow-all-tools --excluded-tools task -p 'Use the arena skill to decide whether a function that adds two integers should be named add or sum. Keep it brief.')"
-order="$(jq -r 'select(.type == "tool.execution_start" and .data.toolName == "skill") | .data.arguments.skill' "$events" | tr '\n' ' ')"
-if [[ "$order" == *"setup-pstack"* ]]; then
-  pass "missing sheet: setup-pstack ran (skill calls: $order)"
-else
-  fail "missing sheet did not trigger setup-pstack (skill calls: ${order:-none}) ($events)"
-fi
-if [ -e "$user/.copilot/pstack-models.md" ]; then
-  fail "setup wrote the sheet to ~/.copilot instead of \$COPILOT_HOME"
-else
-  pass "nothing landed in ~/.copilot"
-fi
-if [ -e "$home/pstack-models.md" ]; then
-  fail "missing sheet: setup wrote a sheet without asking ($events): $(grep -E '^[a-z][a-z ,-]*: ' "$home/pstack-models.md" | tr '\n' '|')"
-else
-  pass "missing sheet: setup without ask_user wrote no sheet"
-fi
-
-# 6. setup-pstack never picks models for the user. A -p session cannot ask, so
-# with no answers it writes no sheet; with every answer in the request it writes
-# exactly those IDs. The panel takes the first GPT and Gemini IDs from the CLI's
-# own `model` setting list, next to the probe model. These run on $setup_model.
+# 5 and 6 run once per setup model; the tally shows how each one did.
 known="$(copilot help config 2>/dev/null | awk '/^ *`model`:/{on=1; next} on && /^ *- "/{gsub(/[ "]/, ""); sub(/^-/, ""); print; next} on && NF==0{exit}')"
-rm -f "$home/pstack-models.md"
-events="$(PROBE_MODEL=$setup_model probe --allow-all-tools -p 'Run the setup-pstack skill now and save the sheet.')"
-if [ -e "$home/pstack-models.md" ]; then
-  fail "setup-pstack wrote a sheet with no answers from the user ($events): $(tr '\n' ' ' <"$home/pstack-models.md")"
-else
-  pass "no answers and no ask_user: setup-pstack wrote no sheet"
-fi
 gpt="$(grep -m1 '^gpt-' <<<"$known" || true)"
 gemini="$(grep -m1 '^gemini-' <<<"$known" || true)"
-if [ -z "$gpt" ] || [ -z "$gemini" ]; then
-  fail "the CLI's model list has no GPT or Gemini ID: $known"
-else
-  panel="$model, $gpt, $gemini"
-  events="$(PROBE_MODEL=$setup_model probe --allow-all-tools -p "Run the setup-pstack skill now and save the sheet. My answers: default model $model. Strongest model $model. Panel models $panel, in that order, and no more. No role overrides. Session hook on.")"
-  sheet="$home/pstack-models.md"
-  if [ ! -e "$sheet" ]; then
-    fail "setup-pstack wrote no sheet from supplied answers ($events)"
+setup_probes() {
+  local setup_model="$1" events order sheet wrong role panel
+  rm -f "$home/pstack-models.md"
+  # 5. No model sheet: a multi-model skill must run setup-pstack before any fan-out.
+  # The task tool is withheld so the probe cannot spend a panel.
+  events="$(PROBE_MODEL=$setup_model probe --allow-all-tools --excluded-tools task -p 'Use the arena skill to decide whether a function that adds two integers should be named add or sum. Keep it brief.')"
+  order="$(jq -r 'select(.type == "tool.execution_start" and .data.toolName == "skill") | .data.arguments.skill' "$events" | tr '\n' ' ')"
+  if [[ "$order" == *"setup-pstack"* ]]; then
+    pass "$setup_model: missing sheet: setup-pstack ran (skill calls: $order)"
   else
-    wrong=""
-    for role in "feature, refactoring" "judgment and prose" "how explorer" "how explainer" "why investigators" "why synthesizer" \
-      "reflect tooling" "reflect judgment, divergent, synthesizer" "swarm workers" "bug-fix" "perf-issue" "hillclimb" "strongest judgment"; do
-      grep -qxF "$role: $model" "$sheet" || wrong="$wrong; $role"
-    done
-    for role in "arena runners" "arena cross-judge pool" "architect runners" "interrogate reviewers"; do
-      grep -qxF "$role: $panel" "$sheet" || wrong="$wrong; $role"
-    done
-    grep -qxF "session hook: on" "$sheet" || wrong="$wrong; session hook"
-    if [ -z "$wrong" ]; then
-      pass "supplied answers: the sheet holds exactly those IDs for all 17 roles"
+    fail "$setup_model: missing sheet did not trigger setup-pstack (skill calls: ${order:-none}) ($events)"
+  fi
+  if [ -e "$user/.copilot/pstack-models.md" ]; then
+    fail "$setup_model: setup wrote the sheet to ~/.copilot instead of \$COPILOT_HOME"
+  else
+    pass "$setup_model: nothing landed in ~/.copilot"
+  fi
+  if [ -e "$home/pstack-models.md" ]; then
+    fail "$setup_model: missing sheet: setup wrote a sheet without asking ($events): $(grep -E '^[a-z][a-z ,-]*: ' "$home/pstack-models.md" | tr '\n' '|')"
+  else
+    pass "$setup_model: missing sheet: setup without ask_user wrote no sheet"
+  fi
+
+  # 6. setup-pstack never picks models for the user. A -p session cannot ask, so
+  # with no answers it writes no sheet; with every answer in the request it writes
+  # exactly those IDs. The panel takes the first GPT and Gemini IDs from the CLI's
+  # own `model` setting list, next to the probe model.
+  rm -f "$home/pstack-models.md"
+  events="$(PROBE_MODEL=$setup_model probe --allow-all-tools -p 'Run the setup-pstack skill now and save the sheet.')"
+  if [ -e "$home/pstack-models.md" ]; then
+    fail "$setup_model: setup-pstack wrote a sheet with no answers from the user ($events): $(tr '\n' ' ' <"$home/pstack-models.md")"
+  else
+    pass "$setup_model: no answers and no ask_user: setup-pstack wrote no sheet"
+  fi
+  if [ -z "$gpt" ] || [ -z "$gemini" ]; then
+    fail "$setup_model: the CLI's model list has no GPT or Gemini ID: $known"
+  else
+    panel="$model, $gpt, $gemini"
+    events="$(PROBE_MODEL=$setup_model probe --allow-all-tools -p "Run the setup-pstack skill now and save the sheet. My answers: default model $model. Strongest model $model. Panel models $panel, in that order, and no more. No role overrides. Session hook on.")"
+    sheet="$home/pstack-models.md"
+    if [ ! -e "$sheet" ]; then
+      fail "$setup_model: setup-pstack wrote no sheet from supplied answers ($events)"
     else
-      fail "supplied answers: wrong or missing lines${wrong} ($sheet: $(tr '\n' '|' <"$sheet"))"
+      wrong=""
+      for role in "feature, refactoring" "judgment and prose" "how explorer" "how explainer" "why investigators" "why synthesizer" \
+        "reflect tooling" "reflect judgment, divergent, synthesizer" "swarm workers" "bug-fix" "perf-issue" "hillclimb" "strongest judgment"; do
+        grep -qxF "$role: $model" "$sheet" || wrong="$wrong; $role"
+      done
+      for role in "arena runners" "arena cross-judge pool" "architect runners" "interrogate reviewers"; do
+        grep -qxF "$role: $panel" "$sheet" || wrong="$wrong; $role"
+      done
+      grep -qxF "session hook: on" "$sheet" || wrong="$wrong; session hook"
+      if [ -z "$wrong" ]; then
+        pass "$setup_model: supplied answers: the sheet holds exactly those IDs for all 17 roles"
+      else
+        fail "$setup_model: supplied answers: wrong or missing lines${wrong} ($sheet: $(tr '\n' '|' <"$sheet"))"
+      fi
     fi
   fi
-fi
+  rm -f "$home/pstack-models.md"
+}
+tally=""
+for setup_model in $setup_models; do
+  before=$failures
+  setup_probes "$setup_model"
+  tally="$tally $setup_model=$([ "$failures" -eq "$before" ] && echo pass || echo "$((failures - before))-failed")"
+done
+echo "setup models:$tally"
 
 # 7. Copilot's path sandbox covers only the workspace and the temp dir, and the
 # sheet and plugin sit outside $work. --disallow-temp-dir takes the temp dir out
@@ -239,8 +264,131 @@ sandboxed() {
 }
 sandboxed "local install" "$repo/plugins/pstack"
 
-# 8. The same on a GitHub marketplace install, which Copilot copies under
-# $COPILOT_HOME/installed-plugins. It installs pushed code, not this checkout.
+# A complete sheet: every role on the probe model, the panel across three vendors.
+full_sheet() {
+  local role
+  {
+    echo "# pstack models"
+    for role in "feature, refactoring" "judgment and prose" "how explorer" "how explainer" "why investigators" "why synthesizer" \
+      "reflect tooling" "reflect judgment, divergent, synthesizer" "swarm workers" "bug-fix" "perf-issue" "hillclimb" "strongest judgment"; do
+      echo "$role: $model"
+    done
+    for role in "arena runners" "arena cross-judge pool" "architect runners" "interrogate reviewers"; do
+      echo "$role: $model, $gpt, $gemini"
+    done
+    echo "session hook: on"
+  } >"$home/pstack-models.md"
+}
+
+# A vendored script runs with no --allow-all-tools: the hook approves the
+# strict `bash <plugin>/skills/*/scripts/*` form, so no permission is requested.
+script_run() {
+  local label="$1" script="$2/skills/show-me-your-work/scripts/log.sh" trail="$work/decisions-$RANDOM.tsv" events
+  events="$(probe -p "Run exactly this one bash command and nothing else, then reply DONE: bash $script $trail smoke chose-table because evidence ok")"
+  if grep -q 'chose-table' "$trail" 2>/dev/null; then
+    pass "$label: the vendored script ran and wrote its row"
+  else
+    fail "$label: the vendored script did not write $trail ($events)"
+  fi
+  if jq -e 'select(.type | startswith("permission."))' "$events" >/dev/null; then
+    fail "$label: the script run requested permission: $(jq -c 'select(.type | startswith("permission.")) | .data' "$events" | head -2)"
+  else
+    pass "$label: the script run requested no permission"
+  fi
+}
+
+# 8. PreToolUse enforcement.
+full_sheet
+off="$(grep -vxF -e "$model" -e "$gpt" -e "$gemini" <<<"$known" | head -1)"
+events="$(probe --allow-all-tools -p "Call the task tool exactly once with agent_type \"pstack:poteto-agent\", model \"$off\", mode \"sync\", name \"probe\", and prompt \"Reply PROBE-OK.\". If the call is denied, do not retry; reply with the denial reason verbatim.")"
+denied="$(jq -r --arg m "$off" 'select(.type == "tool.execution_start" and .data.toolName == "task" and .data.arguments.model == $m) | .data.toolCallId' "$events" | head -1)"
+if [ -n "$denied" ] && jq -e --arg id "$denied" 'select(.type == "tool.execution_complete" and .data.toolCallId == $id and .data.success == false
+  and (.data.error.message // "" | contains("is not one of the user'"'"'s saved pstack model choices")))' "$events" >/dev/null; then
+  pass "task on off-sheet model $off was denied by the model check"
+else
+  fail "task on off-sheet model $off was not denied by the model check ($events)"
+fi
+if grep -qi "saved pstack model choice" "$root/last-reply.txt"; then pass "model read the deny reason"; else fail "deny reason missing from the reply: $(cat "$root/last-reply.txt")"; fi
+rm "$home/pstack-models.md"
+events="$(probe --allow-all-tools --allow-all-paths -p "Use the create tool exactly once to create the file $home/pstack-models.md with the content \"session hook: on\". If it is denied, do not try another way; reply with the denial reason verbatim.")"
+if [ ! -e "$home/pstack-models.md" ] && jq -e 'select(.type == "tool.execution_complete" and .data.success == false
+  and (.data.error.message // "" | contains("pstack sheet check")))' "$events" >/dev/null; then
+  pass "create of a sheet missing every role was denied and wrote nothing"
+else
+  fail "a malformed sheet write was not denied ($events)"
+fi
+script_run "local install" "$repo/plugins/pstack"
+
+# 9. A second plugin's sessionStart hook: both contexts must reach the model.
+market="$root/tools-market"
+mkdir -p "$market/.claude-plugin" "$market/plugins/marker/.claude-plugin" "$market/plugins/marker/hooks"
+printf '%s\n' '{"name":"tools-market","owner":{"name":"smoke"},"plugins":[{"name":"marker","source":"./plugins/marker","description":"marker","version":"0.0.1"}]}' >"$market/.claude-plugin/marketplace.json"
+printf '%s\n' '{"name":"marker","version":"0.0.1","description":"marker"}' >"$market/plugins/marker/.claude-plugin/plugin.json"
+printf '%s\n' '{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"\"${CLAUDE_PLUGIN_ROOT}/hooks/start\""}]}]}}' >"$market/plugins/marker/hooks/hooks.json"
+cat >"$market/plugins/marker/hooks/start" <<'SH'
+#!/bin/sh
+cat >/dev/null
+printf '{"additionalContext":"MARKER-7731 is loaded."}\n'
+SH
+chmod +x "$market/plugins/marker/hooks/start"
+copilot plugin marketplace add "$market" >/dev/null
+copilot plugin install marker@tools-market >/dev/null 2>&1 || true
+full_sheet
+events="$(probe -p 'Use no tools. Reply with two lines. Line 1: "ROUTING: yes" if your context contains a block that begins with "You have pstack.", else "ROUTING: no". Line 2: "MARKER: yes" if your context contains MARKER-7731, else "MARKER: no".')"
+merged="$(hook_context "$events")"
+if [[ "$merged" == *"You have pstack."* && "$merged" == *"MARKER-7731"* ]]; then
+  pass "$cli_version merged both sessionStart contexts"
+else
+  fail "$cli_version: sessionStart contexts not merged ($events)"
+fi
+reply="$(cat "$root/last-reply.txt")"
+if [[ "$reply" == *"ROUTING: yes"* && "$reply" == *"MARKER: yes"* ]]; then
+  pass "model sees both the pstack context and the second plugin's"
+else
+  fail "model does not see both contexts: $reply"
+fi
+copilot plugin uninstall marker@tools-market >/dev/null 2>&1 || true
+
+# 10. A -p resume of the session from check 9 fires the hook again.
+id="$(basename "$(dirname "$events")")"
+(cd "$work" && copilot -s --model "$model" --no-ask-user --resume="$id" -p 'Use no tools. Reply with the single word READY.' >"$root/last-reply.txt" 2>&1) || true
+if jq -e 'select(.type == "session.resume")' "$events" >/dev/null \
+  && [ "$(jq -r 'select(.type == "hook.start" and .data.hookType == "sessionStart") | .data.input.source' "$events" | tail -1)" = resume ] \
+  && [ "$(hook_context "$events" | grep -c 'You have pstack.')" -ge 2 ]; then
+  pass "-p resume fired sessionStart again with source resume and the mandate"
+else
+  fail "-p resume did not re-fire the hook with the mandate ($events)"
+fi
+
+# 11. Interactive sessions, driven on a pseudo-terminal. The hook runs lazily,
+# after the first message is submitted, so check it lands before that turn.
+if command -v python3 >/dev/null 2>&1; then
+  events="$(cd "$work" && python3 "$repo/tests/copilot-tui.py" "$work" "/pstack:arena Two names for the date parser, parseDate or readDate. Dry run only; dispatch nothing and use no tools. Reply in one line: yes or no, does your context contain a block starting with 'You have pstack.'" --model "$model" --excluded-tools task)" || events=""
+  if [ -n "$events" ] && jq -e 'select(.type == "skill.invoked")' "$events" >/dev/null \
+    && jq -s -e 'map(.type) as $t | ($t | index("hook.end")) as $h | ($t | index("assistant.turn_start")) as $a | $h != null and $a != null and $h < $a' "$events" >/dev/null \
+    && [[ "$(hook_context "$events")" == *"You have pstack."* ]]; then
+    pass "interactive: a slash command first message got the routing context before its first turn"
+  else
+    fail "interactive: no routing context before the first turn of a slash command session (${events:-no events})"
+  fi
+  if [ -n "$events" ]; then
+    id="$(basename "$(dirname "$events")")"
+    (cd "$work" && python3 "$repo/tests/copilot-tui.py" "$work" "Use no tools. How many separate blocks starting with 'You have pstack.' are in your context now? Reply with just the number." --model "$model" --excluded-tools task --resume="$id") >/dev/null || true
+    count="$(jq -r 'select(.type == "assistant.message") | .data.content' "$events" | tail -1 | tr -dc '0-9')"
+    if [ "$(jq -r 'select(.type == "hook.start" and .data.hookType == "sessionStart") | .data.input.source' "$events" | tail -1)" = resume ] && [ "$count" = 1 ]; then
+      pass "interactive resume: the hook fired again and the model counts one routing block"
+    else
+      fail "interactive resume: expected a resume hook and one block, model counted '${count:-nothing}' ($events)"
+    fi
+  fi
+else
+  echo "skip: python3 not found, no interactive checks"
+fi
+rm -f "$home/pstack-models.md"
+
+# 12. Checks 7 and 8's script run on a GitHub marketplace install, which
+# Copilot copies under $COPILOT_HOME/installed-plugins. It installs pushed
+# code, not this checkout.
 if [ -n "${SMOKE_GITHUB:-}" ]; then
   home="$root/github-home"
   mkdir -p "$home"
@@ -251,6 +399,7 @@ if [ -n "${SMOKE_GITHUB:-}" ]; then
   if [ -e "$home/installed-plugins/pstack-claude/pstack/hooks/pre-tool-use" ]; then
     pass "GitHub install copied the plugin under installed-plugins"
     sandboxed "GitHub install" "$home/installed-plugins/pstack-claude/pstack"
+    script_run "GitHub install" "$home/installed-plugins/pstack-claude/pstack"
   else
     fail "GitHub install of $SMOKE_GITHUB left no hooks/pre-tool-use under $home/installed-plugins/pstack-claude/pstack"
   fi
