@@ -22,14 +22,15 @@ node evals/copilot/run.mjs --models gpt-5-mini --judge-model gpt-5-mini --out /t
 | `--rep-start` | `1` | number of the first rep, so a later run can add reps to an earlier one |
 | `--arms` | `A,B` | arms to run |
 | `--parallel` | `4` | concurrent candidate sessions |
-| `--judge-model` | `grok-4.7` | blinded judge; pick a different family from the candidates |
+| `--judge-model` | `grok-4.7` | comma-separated blinded judges, each reading the same packet; pick families different from the candidates |
 | `--panel` | `claude-sonnet-5,grok-4.7` | extra panel models written into arm B's sheet |
 | `--timeout-min` | `30` | per-candidate wall clock limit |
 | `--seed` | time-based | seeds the judge's label order |
 | `--out` | `results/<stamp>` | output directory |
 | `--archive` | `archive/<stamp>` | where each run's workdir, reply, and session state are kept (gitignored) |
 | `--no-judge` | off | skip the judge |
-| `--regrade` | off | comma-separated result dirs; re-grade their archived runs against the current hidden checks and merge them into `--out`, without running candidates |
+| `--judge-dry-run` | off | write `judge-packet.md` without calling a judge, to check it for leaks before a paid call |
+| `--regrade` | off | comma-separated result dirs; re-grade their archived runs against the current hidden checks and merge them into `--out`, without running candidates; keeps only runs matching `--tasks`, `--models`, and `--arms`, then judges the A/B pairs that `--reps` and `--rep-start` name |
 
 Each candidate gets its own `HOME` under one temp root, with `COPILOT_HOME` set to that home's `.copilot` like a default install, so nothing reads or writes the real `~/.copilot`. After grading, each run's workdir, `reply.txt`, and `session-state/` are copied to `--archive`, and the temp root can be deleted.
 
@@ -79,4 +80,4 @@ Then one blinded judge on a different model family scores each pair in a single 
 
 ## Outputs
 
-`results/<stamp>/` holds `results.json` (every metric, with paths into the archive), one compact `.events.jsonl` extract per run (tool calls with shortened arguments, skills, hooks, permission events, and usage), one `.diff` per run, `judge-packet.md`, `judge-raw.txt`, `judge.json` (unblinded), and `report.md` (pass rate per arm and per task with Wilson 95% intervals, premium requests and wall time per arm, the per-run table, and the judge table; add the synthesis by hand after reading every diff).
+`results/<stamp>/` holds `results.json` (every metric, with paths into the archive), one compact `.events.jsonl` extract per run (tool calls with shortened arguments, skills, hooks, permission events, and usage), one `.diff` per run, `judge-packet.md`, `judge-raw.txt` and `judge.json` (unblinded) per judge, suffixed `.<model>` when there are several, and `report.md` (pass rate per arm and per task with Wilson 95% intervals, premium requests and wall time per arm, the per-run table, and the judge table; add the synthesis by hand after reading every diff).

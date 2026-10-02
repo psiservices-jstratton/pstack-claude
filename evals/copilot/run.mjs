@@ -27,6 +27,7 @@ const { values: flags } = parseArgs({
     out: { type: "string" },
     archive: { type: "string" },
     "no-judge": { type: "boolean", default: false },
+    "judge-dry-run": { type: "boolean", default: false },
     regrade: { type: "string" },
   },
 });
@@ -249,12 +250,14 @@ function rng(seed) {
 }
 
 const PLUGIN_TELL = /pstack|\.copilot|COPILOT_HOME|plugin|skills?\//i;
+// Candidate temp roots (<tmp>/ws-*/ws-*), which a regrade no longer knows.
+const TEMP_ROOT = /(?:\/private)?\/var\/folders\/[^\s'"]*?\/T\/ws-[^/\s'"]+(?:\/ws-[^/\s'"]+)?/g;
 
 function submission(r) {
   const work = r.work;
   const cmds = (r.grade?.transcript?.bash ?? [])
     .filter((c) => !PLUGIN_TELL.test(c))
-    .map((c) => c.split(r.root).join("<workdir-root>").split(work).join("."));
+    .map((c) => c.split(r.root).join("<workdir-root>").split(work).join(".").replace(TEMP_ROOT, "<workdir-root>").split(`<workdir-root>/${r.task}`).join("."));
   const patch = r.grade?.diff.patch ?? "";
   return [
     `Project test suite after the change: ${r.grade?.ownSuite.pass}/${r.grade?.ownSuite.total} passing.`,
@@ -290,7 +293,7 @@ async function judge(results) {
     const flip = random() < 0.5;
     pairs.push({ id: `P${pairs.length + 1}`, task, model, rep, labels: flip ? { 1: "B", 2: "A" } : { 1: "A", 2: "B" }, runs: flip ? [b, a] : [a, b] });
   }
-  if (!pairs.length) return null;
+  if (!pairs.length) return [];
   const packet = [
     "# Code review packet",
     "",
@@ -319,20 +322,26 @@ async function judge(results) {
       "",
     ]),
   ].join("\n");
+  writeFileSync(join(outDir, "judge-packet.md"), packet);
+  if (flags["judge-dry-run"]) { log(`wrote judge-packet.md (${pairs.length} pairs); no judge called`); return []; }
+  const judgeModels = flags["judge-model"].split(",").filter(Boolean);
+  return Promise.all(judgeModels.map((m) => judgeWith(m, pairs, packet, judgeModels.length > 1 ? `.${m}` : "")));
+}
+
+async function judgeWith(judgeModel, pairs, packet, suffix) {
   const judgeRoot = realpathSync(mkdtempSync(join(base, "review-")));
   mkdirSync(join(judgeRoot, "home", ".copilot"), { recursive: true });
   writeFileSync(join(judgeRoot, "packet.md"), packet);
-  writeFileSync(join(outDir, "judge-packet.md"), packet);
   const shape = `{"pairs":[{"id":"P1","scores":{"1":{${RUBRIC.map(([k]) => `"${k}":0`).join(",")}},"2":{...}},"preferred":"1|2|tie","rationale":"two or three sentences"}]}`;
   const prompt = `Read packet.md in the current directory with the view tool (it may need several reads). Follow its instructions for every section (${pairs.map((p) => p.id).join(", ")}). Reply with only a JSON object of this shape and nothing else: ${shape}`;
-  log(`judge (${flags["judge-model"]}) on ${pairs.length} pairs`);
-  const r = await run("copilot", ["-s", "--model", flags["judge-model"], "--available-tools", "view", "--allow-all-tools", "--no-ask-user", "-p", prompt], {
+  log(`judge (${judgeModel}) on ${pairs.length} pairs`);
+  const r = await run("copilot", ["-s", "--model", judgeModel, "--available-tools", "view", "--allow-all-tools", "--no-ask-user", "-p", prompt], {
     cwd: judgeRoot, env: { ...process.env, COPILOT_HOME: join(judgeRoot, "home", ".copilot"), HOME: join(judgeRoot, "home") }, timeout: 20 * 60_000,
   });
-  writeFileSync(join(outDir, "judge-raw.txt"), r.stdout + (r.stderr ? `\n--- stderr ---\n${r.stderr}` : ""));
+  writeFileSync(join(outDir, `judge-raw${suffix}.txt`), r.stdout + (r.stderr ? `\n--- stderr ---\n${r.stderr}` : ""));
   const json = r.stdout.slice(r.stdout.indexOf("{"), r.stdout.lastIndexOf("}") + 1);
   let verdict;
-  try { verdict = JSON.parse(json); } catch { log("judge reply was not JSON; see judge-raw.txt"); return { pairs: pairs.map(({ runs, ...p }) => p), verdict: null }; }
+  try { verdict = JSON.parse(json); } catch { log(`judge ${judgeModel} reply was not JSON; see judge-raw${suffix}.txt`); return { judgeModel, suffix, pairs: [], unparsed: true }; }
   // Unblind: map labels back to arms.
   const unblinded = verdict.pairs.map((v) => {
     const p = pairs.find((x) => x.id === v.id);
@@ -341,7 +350,7 @@ async function judge(results) {
     const preferred = v.preferred === "tie" ? "tie" : p.labels[v.preferred];
     return { id: v.id, task: p.task, model: p.model, rep: p.rep, labels: p.labels, scores, preferred, rationale: v.rationale };
   });
-  return { judgeModel: flags["judge-model"], seed: Number(flags.seed), pairs: unblinded };
+  return { judgeModel, suffix, seed: Number(flags.seed), pairs: unblinded };
 }
 
 function table(rows) {
@@ -395,7 +404,7 @@ function summary(results) {
   return { perTask, perArm };
 }
 
-function report(results, verdict) {
+function report(results, verdicts = []) {
   const rows = results.map((r) => {
     const g = r.grade;
     const t = g?.transcript;
@@ -414,15 +423,15 @@ function report(results, verdict) {
       "wall s": Math.round((r.wallMs ?? 0) / 1000),
     };
   });
-  const judged = verdict?.pairs?.length ? table(verdict.pairs.map((p) => ({
-    pair: p.id, task: p.task, "blind order": `1=${p.labels[1]} 2=${p.labels[2]}`, preferred: p.preferred,
+  const judged = verdicts.length ? verdicts.flatMap((v) => [`### ${v.judgeModel}`, "", v.pairs.length ? table(v.pairs.map((p) => ({
+    pair: p.id, task: p.task, model: p.model, rep: p.rep, "blind order": `1=${p.labels[1]} 2=${p.labels[2]}`, preferred: p.preferred,
     ...Object.fromEntries(RUBRIC.map(([k]) => [`${k} A/B`, `${p.scores.A?.[k] ?? "?"}/${p.scores.B?.[k] ?? "?"}`])),
-  }))) : "No judge verdict.";
+  }))) : "No parseable verdict.", ""]).join("\n") : "No judge verdict.";
   const { perTask, perArm } = summary(results);
   return [
     `# Copilot A/B run ${stamp}`,
     "",
-    `Arms: A = plain Copilot CLI, B = Copilot CLI with pstack installed. Models: ${[...new Set(results.map((r) => r.model))].join(", ")}. Reps: ${[...new Set(results.map((r) => r.rep))].sort().join(", ")}. Judge: ${verdict ? verdict.judgeModel : "none"}.`,
+    `Arms: A = plain Copilot CLI, B = Copilot CLI with pstack installed. Models: ${[...new Set(results.map((r) => r.model))].join(", ")}. Reps: ${[...new Set(results.map((r) => r.rep))].sort().join(", ")}. Judge: ${verdicts.length ? verdicts.map((v) => v.judgeModel).join(", ") : "none"}.`,
     "",
     "## Pass rate per arm",
     "",
@@ -482,7 +491,8 @@ function archive(r) {
 // Re-grades archived runs from earlier results directories against the current
 // hidden checks, and merges them into one results.json and report.
 async function regrade() {
-  const loaded = flags.regrade.split(",").filter(Boolean).flatMap((dir) => JSON.parse(readFileSync(join(dir, "results.json"), "utf8")).results);
+  const loaded = flags.regrade.split(",").filter(Boolean).flatMap((dir) => JSON.parse(readFileSync(join(dir, "results.json"), "utf8")).results)
+    .filter((r) => tasks.includes(r.task) && models.includes(r.model) && arms.includes(r.arm));
   const graded = await pool(loaded, Number(flags.parallel), async (r) => {
     if (!r.archived) return r;
     const root = realpathSync(mkdtempSync(join(base, "ws-")));
@@ -495,7 +505,9 @@ async function regrade() {
   });
   const slim = graded.map(({ grade: g, ...r }) => ({ ...r, grade: g && { ...g, diff: { ...g.diff, patch: undefined } } }));
   writeFileSync(join(outDir, "results.json"), JSON.stringify({ stamp, regradedFrom: flags.regrade.split(","), results: slim }, null, 2));
-  writeFileSync(join(outDir, "report.md"), report(graded, null));
+  const verdicts = flags["no-judge"] ? [] : await judge(graded.map((r) => ({ ...r, root: undefined, work: join(repo, r.work) })));
+  for (const v of verdicts) writeFileSync(join(outDir, `judge${v.suffix}.json`), JSON.stringify(v, null, 2));
+  writeFileSync(join(outDir, "report.md"), report(graded, verdicts));
   rmSync(base, { recursive: true, force: true });
   log(`regraded ${graded.length} runs into ${outDir}`);
 }
@@ -512,12 +524,12 @@ async function main() {
   const prepared = await pool(jobs, Number(flags.parallel), (j) => prepare(j, pluginDir));
   const ran = await pool(prepared, Number(flags.parallel), (j) => (j.error ? j : candidate(j)));
   const graded = await pool(ran, Number(flags.parallel), async (j) => (j.error ? j : { ...j, grade: await grade(j) }));
-  const verdict = flags["no-judge"] ? null : await judge(graded);
+  const verdicts = flags["no-judge"] ? [] : await judge(graded);
   const slim = graded.map(archive).map(({ env, grade: g, ...r }) => ({ ...r, grade: g && { ...g, diff: { ...g.diff, patch: undefined } } }));
   writeFileSync(join(outDir, "results.json"), JSON.stringify({ stamp, base, flags, results: slim }, null, 2));
   for (const r of graded) if (r.grade) writeFileSync(join(outDir, `${r.task}.${r.model}.r${r.rep}.${r.arm}.diff`), r.grade.diff.patch);
-  if (verdict) writeFileSync(join(outDir, "judge.json"), JSON.stringify(verdict, null, 2));
-  writeFileSync(join(outDir, "report.md"), report(graded, verdict));
+  for (const v of verdicts) writeFileSync(join(outDir, `judge${v.suffix}.json`), JSON.stringify(v, null, 2));
+  writeFileSync(join(outDir, "report.md"), report(graded, verdicts));
   log(`wrote ${outDir}; workdirs and transcripts archived under ${archiveDir}; the temp root ${base} can be deleted`);
 }
 
