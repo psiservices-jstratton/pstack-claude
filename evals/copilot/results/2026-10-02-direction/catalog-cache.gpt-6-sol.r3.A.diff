@@ -1,0 +1,172 @@
+diff --git a/README.md b/README.md
+index 46f1335..2b1b313 100644
+--- a/README.md
++++ b/README.md
+@@ -2,6 +2,6 @@
+ 
+ A small read-through cache for product catalog lookups. `CatalogCache` wraps an upstream fetch function and stores item data for a configured number of milliseconds.
+ 
+-Repeated reads for a fresh item should use the cached result. Once an entry expires, the next read should ask upstream again. Different item ids are independent, and `getMany` returns results in the same order as the input ids.
++Concurrent reads for the same item share one upstream lookup, including after an entry expires. Successful results remain cached for the configured TTL starting when the lookup completes; failed lookups are not cached and can be retried. Different item ids are independent, and `getMany` returns results in the same order as the input ids.
+ 
+ Run `npm test` with Node 24.
+diff --git a/src/catalog-cache.ts b/src/catalog-cache.ts
+index 78a06a1..485f95e 100644
+--- a/src/catalog-cache.ts
++++ b/src/catalog-cache.ts
+@@ -6,10 +6,9 @@ export type CatalogCacheOptions = {
+   now?: () => number;
+ };
+ 
+-type CacheEntry = {
+-  expiresAt: number;
+-  promise: Promise<CatalogItem>;
+-};
++type CacheEntry =
++  | { status: "pending"; promise: Promise<CatalogItem> }
++  | { status: "fresh"; expiresAt: number; promise: Promise<CatalogItem> };
+ 
+ export class CatalogCache {
+   private readonly ttlMs: number;
+@@ -26,17 +25,21 @@ export class CatalogCache {
+ 
+   async getItem(id: string): Promise<CatalogItem> {
+     const cached = this.entries.get(id);
+-    if (cached && cached.expiresAt > this.now()) {
++    if (cached && (cached.status === "pending" || cached.expiresAt > this.now())) {
+       return cached.promise;
+     }
+ 
+     const promise = this.fetchItem(id);
++    const pending: CacheEntry = { status: "pending", promise };
++    this.entries.set(id, pending);
+     try {
+       const item = await promise;
+-      this.entries.set(id, { expiresAt: this.now() + this.ttlMs, promise });
++      if (this.entries.get(id) === pending) {
++        this.entries.set(id, { status: "fresh", expiresAt: this.now() + this.ttlMs, promise });
++      }
+       return item;
+     } catch (error) {
+-      this.entries.set(id, { expiresAt: this.now() + this.ttlMs, promise });
++      if (this.entries.get(id) === pending) this.entries.delete(id);
+       throw error;
+     }
+   }
+diff --git a/test/catalog-cache.test.ts b/test/catalog-cache.test.ts
+index 92421b7..82707a5 100644
+--- a/test/catalog-cache.test.ts
++++ b/test/catalog-cache.test.ts
+@@ -47,3 +47,112 @@ test("getMany keeps input order and ids separate", async () => {
+   assert.deepEqual(results.map((r) => r.id), ["pin", "mug", "pin"]);
+   assert.equal(cache.size, 2);
+ });
++
++test("coalesces concurrent lookups for each id, including getMany duplicates", async () => {
++  const pin = Promise.withResolvers<CatalogItem>();
++  const mug = Promise.withResolvers<CatalogItem>();
++  const calls: string[] = [];
++  const cache = new CatalogCache({
++    ttlMs: 1000,
++    fetchItem: (id) => {
++      calls.push(id);
++      return id === "pin" ? pin.promise : mug.promise;
++    },
++  });
++
++  const many = cache.getMany(["pin", "mug", "pin"]);
++  const single = cache.getItem("pin");
++  assert.deepEqual(calls, ["pin", "mug"]);
++  assert.equal(cache.size, 2);
++
++  mug.resolve(item("mug"));
++  pin.resolve(item("pin"));
++  assert.deepEqual((await many).map((result) => result.id), ["pin", "mug", "pin"]);
++  assert.deepEqual(await single, item("pin"));
++});
++
++test("starts TTL when a lookup completes and coalesces expired refreshes", async () => {
++  let now = 10;
++  let calls = 0;
++  const first = Promise.withResolvers<CatalogItem>();
++  const refresh = Promise.withResolvers<CatalogItem>();
++  const cache = new CatalogCache({
++    ttlMs: 5,
++    now: () => now,
++    fetchItem: (id) => {
++      calls++;
++      return calls === 1 ? first.promise : calls === 2 ? refresh.promise : Promise.resolve(item(id, "third"));
++    },
++  });
++
++  const initial = cache.getItem("tote");
++  now = 100;
++  const alsoInitial = cache.getItem("tote");
++  assert.equal(calls, 1);
++  first.resolve(item("tote", "first"));
++  assert.equal((await initial).title, "first");
++  assert.equal((await alsoInitial).title, "first");
++
++  now = 104;
++  assert.equal((await cache.getItem("tote")).title, "first");
++  now = 105;
++  const updated = cache.getItem("tote");
++  const alsoUpdated = cache.getItem("tote");
++  assert.equal(calls, 2);
++  now = 200;
++  refresh.resolve(item("tote", "second"));
++  assert.equal((await updated).title, "second");
++  assert.equal((await alsoUpdated).title, "second");
++  now = 204;
++  assert.equal((await cache.getItem("tote")).title, "second");
++  now = 205;
++  assert.equal((await cache.getItem("tote")).title, "third");
++  assert.equal(calls, 3);
++});
++
++test("shares in-flight failures but retries after rejection", async () => {
++  const first = Promise.withResolvers<CatalogItem>();
++  let calls = 0;
++  const cache = new CatalogCache({
++    ttlMs: 1000,
++    fetchItem: async (id) => {
++      calls++;
++      return calls === 1 ? first.promise : item(id, "recovered");
++    },
++  });
++
++  const one = cache.getItem("mug");
++  const two = cache.getItem("mug");
++  assert.equal(calls, 1);
++  const outage = new Error("upstream unavailable");
++  first.reject(outage);
++  assert.deepEqual(await Promise.allSettled([one, two]), [
++    { status: "rejected", reason: outage },
++    { status: "rejected", reason: outage },
++  ]);
++  assert.equal(cache.size, 0);
++  assert.equal((await cache.getItem("mug")).title, "recovered");
++  assert.equal(calls, 2);
++});
++
++test("forgetting an in-flight lookup does not replace a newer lookup", async () => {
++  const first = Promise.withResolvers<CatalogItem>();
++  const second = Promise.withResolvers<CatalogItem>();
++  let calls = 0;
++  const cache = new CatalogCache({
++    ttlMs: 1000,
++    fetchItem: () => (++calls === 1 ? first.promise : second.promise),
++  });
++
++  const forgotten = cache.getItem("pin");
++  assert.equal(cache.forget("pin"), true);
++  const current = cache.getItem("pin");
++  first.resolve(item("pin", "forgotten"));
++  assert.equal((await forgotten).title, "forgotten");
++  const shared = cache.getItem("pin");
++  assert.equal(calls, 2);
++  second.resolve(item("pin", "current"));
++  assert.equal((await current).title, "current");
++  assert.equal((await shared).title, "current");
++  assert.equal((await cache.getItem("pin")).title, "current");
++});

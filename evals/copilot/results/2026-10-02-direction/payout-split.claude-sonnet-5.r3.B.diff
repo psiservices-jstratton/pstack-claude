@@ -1,0 +1,76 @@
+diff --git a/src/split.ts b/src/split.ts
+index d278c95..0da7cb0 100644
+--- a/src/split.ts
++++ b/src/split.ts
+@@ -6,8 +6,26 @@ export function splitPayout(amountCents: number, recipients: Recipient[]): Share
+   const weight = totalWeight(recipients);
+   if (weight === 0) return recipients.map((recipient) => ({ recipientId: recipient.id, cents: 0 }));
+ 
+-  return recipients.map((recipient) => ({
++  // Refunds are the exact negation of the same positive split, so split the
++  // magnitude and flip the sign back on afterward rather than rounding twice.
++  const sign = amountCents < 0 ? -1 : 1;
++  const magnitude = Math.abs(amountCents);
++
++  const shareCents = recipients.map((recipient) => Math.floor((magnitude * recipient.weight) / weight));
++  let leftoverCents = magnitude - shareCents.reduce((sum, cents) => sum + cents, 0);
++
++  const byRemainderDesc = recipients
++    .map((recipient, index) => ({ index, remainder: (magnitude * recipient.weight) % weight }))
++    .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
++
++  for (const { index } of byRemainderDesc) {
++    if (leftoverCents === 0) break;
++    shareCents[index] += 1;
++    leftoverCents -= 1;
++  }
++
++  return recipients.map((recipient, index) => ({
+     recipientId: recipient.id,
+-    cents: Math.round((amountCents * recipient.weight) / weight),
++    cents: sign * shareCents[index],
+   }));
+ }
+diff --git a/test/split.test.ts b/test/split.test.ts
+index b182115..afe3e70 100644
+--- a/test/split.test.ts
++++ b/test/split.test.ts
+@@ -23,6 +23,38 @@ test("rejects negative weights", () => {
+   assert.throws(() => splitPayout(100, [{ id: "bad", weight: -1 }]), RangeError);
+ });
+ 
++test("shares always sum to the original amount, remainder to largest fractional part", () => {
++  const thirds = [
++    { id: "a", weight: 1 },
++    { id: "b", weight: 1 },
++    { id: "c", weight: 1 },
++  ];
++  const shares = splitPayout(100, thirds);
++  assert.equal(
++    shares.reduce((sum, share) => sum + share.cents, 0),
++    100,
++  );
++  assert.deepEqual(shares, [
++    { recipientId: "a", cents: 34 },
++    { recipientId: "b", cents: 33 },
++    { recipientId: "c", cents: 33 },
++  ]);
++});
++
++test("refund clawback is the exact negation of the positive split", () => {
++  const thirds = [
++    { id: "a", weight: 1 },
++    { id: "b", weight: 1 },
++    { id: "c", weight: 1 },
++  ];
++  const payout = splitPayout(100, thirds);
++  const clawback = splitPayout(-100, thirds);
++  assert.deepEqual(
++    clawback,
++    payout.map((share) => ({ recipientId: share.recipientId, cents: -share.cents })),
++  );
++});
++
+ test("summary uses the split order", () => {
+   assert.equal(summarizeSplit(400, recipients), "artist:300,label:100");
+ });

@@ -1,0 +1,71 @@
+diff --git a/src/split.ts b/src/split.ts
+index d278c95..c814e5b 100644
+--- a/src/split.ts
++++ b/src/split.ts
+@@ -6,8 +6,31 @@ export function splitPayout(amountCents: number, recipients: Recipient[]): Share
+   const weight = totalWeight(recipients);
+   if (weight === 0) return recipients.map((recipient) => ({ recipientId: recipient.id, cents: 0 }));
+ 
+-  return recipients.map((recipient) => ({
++  // Clawbacks split as the exact negation of the same positive payout, so
++  // allocate against the absolute amount and reapply the sign at the end.
++  const sign = amountCents < 0 ? -1 : 1;
++  const absoluteCents = Math.abs(amountCents);
++
++  const allocations = recipients.map((recipient) => {
++    const exact = (absoluteCents * recipient.weight) / weight;
++    const base = Math.floor(exact);
++    return { base, remainder: exact - base };
++  });
++
++  // Largest-remainder method: hand out the cents floor() dropped, one at a
++  // time, to the recipients with the biggest fractional remainder. Exact
++  // ties keep the input order, since the sort below is stable and only
++  // reorders by remainder.
++  let leftoverCents = absoluteCents - allocations.reduce((sum, allocation) => sum + allocation.base, 0);
++  const byRemainder = [...allocations].sort((a, b) => b.remainder - a.remainder);
++  for (const allocation of byRemainder) {
++    if (leftoverCents <= 0) break;
++    allocation.base += 1;
++    leftoverCents -= 1;
++  }
++
++  return recipients.map((recipient, index) => ({
+     recipientId: recipient.id,
+-    cents: Math.round((amountCents * recipient.weight) / weight),
++    cents: sign * allocations[index].base,
+   }));
+ }
+diff --git a/test/split.test.ts b/test/split.test.ts
+index b182115..fdf2a55 100644
+--- a/test/split.test.ts
++++ b/test/split.test.ts
+@@ -26,3 +26,28 @@ test("rejects negative weights", () => {
+ test("summary uses the split order", () => {
+   assert.equal(summarizeSplit(400, recipients), "artist:300,label:100");
+ });
++
++test("shares always sum to the original amount despite fractional remainders", () => {
++  const equalWeights = [{ id: "a", weight: 1 }, { id: "b", weight: 1 }, { id: "c", weight: 1 }];
++  const shares = splitPayout(100, equalWeights);
++  assert.equal(shares.reduce((sum, share) => sum + share.cents, 0), 100);
++});
++
++test("exact ties for the leftover cent go to earlier recipients", () => {
++  const equalWeights = [{ id: "a", weight: 1 }, { id: "b", weight: 1 }, { id: "c", weight: 1 }];
++  assert.deepEqual(splitPayout(100, equalWeights), [
++    { recipientId: "a", cents: 34 },
++    { recipientId: "b", cents: 33 },
++    { recipientId: "c", cents: 33 },
++  ]);
++});
++
++test("refund clawbacks are the exact negation of the same positive payout", () => {
++  const equalWeights = [{ id: "a", weight: 1 }, { id: "b", weight: 1 }, { id: "c", weight: 1 }];
++  const payout = splitPayout(100, equalWeights);
++  const clawback = splitPayout(-100, equalWeights);
++  assert.deepEqual(
++    clawback.map((share) => share.cents),
++    payout.map((share) => -share.cents),
++  );
++});

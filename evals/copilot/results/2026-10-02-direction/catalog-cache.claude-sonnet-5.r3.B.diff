@@ -1,0 +1,105 @@
+diff --git a/src/catalog-cache.ts b/src/catalog-cache.ts
+index 78a06a1..9b969df 100644
+--- a/src/catalog-cache.ts
++++ b/src/catalog-cache.ts
+@@ -16,6 +16,7 @@ export class CatalogCache {
+   private readonly fetchItem: FetchCatalogItem;
+   private readonly now: () => number;
+   private readonly entries = new Map<string, CacheEntry>();
++  private readonly inFlight = new Map<string, Promise<CatalogItem>>();
+ 
+   constructor(options: CatalogCacheOptions) {
+     if (options.ttlMs <= 0) throw new RangeError("ttlMs must be positive");
+@@ -30,7 +31,14 @@ export class CatalogCache {
+       return cached.promise;
+     }
+ 
++    // Coalesce concurrent lookups for the same id into a single upstream call.
++    const pending = this.inFlight.get(id);
++    if (pending) {
++      return pending;
++    }
++
+     const promise = this.fetchItem(id);
++    this.inFlight.set(id, promise);
+     try {
+       const item = await promise;
+       this.entries.set(id, { expiresAt: this.now() + this.ttlMs, promise });
+@@ -38,6 +46,8 @@ export class CatalogCache {
+     } catch (error) {
+       this.entries.set(id, { expiresAt: this.now() + this.ttlMs, promise });
+       throw error;
++    } finally {
++      this.inFlight.delete(id);
+     }
+   }
+ 
+diff --git a/test/catalog-cache.test.ts b/test/catalog-cache.test.ts
+index 92421b7..1efe35d 100644
+--- a/test/catalog-cache.test.ts
++++ b/test/catalog-cache.test.ts
+@@ -41,6 +41,64 @@ test("expired entries are loaded again", async () => {
+   assert.equal((await cache.getItem("tote")).title, "version-2");
+ });
+ 
++test("coalesces concurrent lookups for the same id into one upstream call", async () => {
++  let calls = 0;
++  let resolveFetch!: (value: CatalogItem) => void;
++  const cache = new CatalogCache({
++    ttlMs: 1000,
++    fetchItem: async (id) => {
++      calls++;
++      return new Promise((resolve) => {
++        resolveFetch = resolve;
++      });
++    },
++  });
++
++  const requests = [cache.getItem("mug"), cache.getItem("mug"), cache.getItem("mug")];
++  resolveFetch(item("mug"));
++  const results = await Promise.all(requests);
++
++  assert.equal(calls, 1);
++  assert.equal(results.length, 3);
++  for (const result of results) assert.equal(result.title, "mug");
++});
++
++test("coalesces concurrent lookups that fail, and still retries once the TTL expires", async () => {
++  let now = 0;
++  let calls = 0;
++  let rejectFetch!: (error: Error) => void;
++  const cache = new CatalogCache({
++    ttlMs: 5,
++    now: () => now,
++    fetchItem: async (id) => {
++      calls++;
++      if (calls === 1) {
++        return new Promise((_resolve, reject) => {
++          rejectFetch = reject;
++        });
++      }
++      return item(id, "recovered");
++    },
++  });
++
++  const requests = [cache.getItem("mug"), cache.getItem("mug")].map((p) => p.catch((e: Error) => e));
++  rejectFetch(new Error("upstream down"));
++  const [first, second] = await Promise.all(requests);
++
++  assert.equal(calls, 1);
++  assert.ok(first instanceof Error);
++  assert.ok(second instanceof Error);
++
++  // Still within the TTL window: the cached failure is reused, no new call.
++  await assert.rejects(() => cache.getItem("mug"));
++  assert.equal(calls, 1);
++
++  // TTL behavior is unchanged: past expiry, a fresh lookup is made.
++  now = 10;
++  assert.equal((await cache.getItem("mug")).title, "recovered");
++  assert.equal(calls, 2);
++});
++
+ test("getMany keeps input order and ids separate", async () => {
+   const cache = new CatalogCache({ ttlMs: 1000, fetchItem: async (id) => item(id) });
+   const results = await cache.getMany(["pin", "mug", "pin"]);

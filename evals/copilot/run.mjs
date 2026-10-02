@@ -462,7 +462,7 @@ function extract(eventsPath) {
     const d = e.data ?? {};
     if (e.type === "tool.execution_start") out.push({ t: e.type, tool: d.toolName, args: Object.fromEntries(Object.entries(d.arguments ?? {}).map(([k, v]) => [k, short(v)])) });
     else if (e.type === "tool.execution_complete") out.push({ t: e.type, ok: d.success, error: short(d.error?.message) });
-    else if (e.type === "hook.end") out.push({ t: e.type, hook: d.hookType ?? d.hookName, context: typeof d.output?.additionalContext === "string" ? d.output.additionalContext.length : null });
+    else if (e.type === "hook.end") out.push({ t: e.type, hook: d.hookType ?? d.hookName, context: typeof d.output?.additionalContext === "string" ? d.output.additionalContext.length : null, decision: d.output?.permissionDecision ?? null });
     else if (/^(skill\.invoked|session\.(start|shutdown|resume)|permission\.(requested|completed)|subagent\.)/.test(e.type)) out.push({ t: e.type, data: e.type === "session.shutdown" ? { totalPremiumRequests: d.totalPremiumRequests, totalApiDurationMs: d.totalApiDurationMs } : Object.fromEntries(Object.entries(d).map(([k, v]) => [k, short(typeof v === "object" ? JSON.stringify(v) : v)])) });
   }
   return out.map((o) => JSON.stringify(o)).join("\n") + "\n";

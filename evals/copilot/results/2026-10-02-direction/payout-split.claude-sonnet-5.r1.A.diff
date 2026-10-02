@@ -1,0 +1,65 @@
+diff --git a/src/split.ts b/src/split.ts
+index d278c95..1e4423a 100644
+--- a/src/split.ts
++++ b/src/split.ts
+@@ -1,13 +1,57 @@
+ import { assertValidRecipients, totalWeight } from "./recipients.ts";
+ import type { Recipient, Share } from "./types.ts";
+ 
++// Floor division for BigInt that always rounds toward negative infinity, matching
++// Math.floor semantics (BigInt's native "/" truncates toward zero instead).
++function floorDivBigInt(numerator: bigint, denominator: bigint): bigint {
++  const quotient = numerator / denominator;
++  const remainder = numerator % denominator;
++  return remainder !== 0n && remainder < 0n !== denominator < 0n ? quotient - 1n : quotient;
++}
++
+ export function splitPayout(amountCents: number, recipients: Recipient[]): Share[] {
+   assertValidRecipients(recipients);
+   const weight = totalWeight(recipients);
+   if (weight === 0) return recipients.map((recipient) => ({ recipientId: recipient.id, cents: 0 }));
+ 
+-  return recipients.map((recipient) => ({
+-    recipientId: recipient.id,
+-    cents: Math.round((amountCents * recipient.weight) / weight),
++  // Use the largest-remainder method with exact BigInt arithmetic so per-recipient
++  // shares always sum to exactly amountCents (including negative amounts, i.e.
++  // refunds), instead of each share rounding independently and drifting off by a
++  // cent or two.
++  const total = BigInt(amountCents);
++  const denom = BigInt(weight);
++
++  const pieces = recipients.map((recipient, index) => {
++    // Weights are expected to be non-negative integers; guard against fractional
++    // input so BigInt conversion never throws.
++    if (!Number.isInteger(recipient.weight)) {
++      throw new RangeError(`Non-integer weight for ${recipient.id}`);
++    }
++    const numerator = total * BigInt(recipient.weight);
++    const base = floorDivBigInt(numerator, denom);
++    const remainder = numerator - base * denom;
++    return { recipient, index, base, remainder };
++  });
++
++  const distributed = pieces.reduce((sum, piece) => sum + piece.base, 0n);
++  let leftover = Number(total - distributed);
++
++  // Distribute the remaining cents to the recipients with the largest remainders
++  // first, breaking ties by original recipient order for deterministic results.
++  const order = [...pieces].sort((a, b) => {
++    if (a.remainder !== b.remainder) return a.remainder > b.remainder ? -1 : 1;
++    return a.index - b.index;
++  });
++
++  const bonuses = new Map<number, bigint>();
++  for (const piece of order) {
++    if (leftover <= 0) break;
++    bonuses.set(piece.index, 1n);
++    leftover -= 1;
++  }
++
++  return pieces.map((piece) => ({
++    recipientId: piece.recipient.id,
++    cents: Number(piece.base + (bonuses.get(piece.index) ?? 0n)),
+   }));
+ }

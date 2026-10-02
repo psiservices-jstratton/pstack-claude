@@ -81,3 +81,5 @@ Then one blinded judge on a different model family scores each pair in a single 
 ## Outputs
 
 `results/<stamp>/` holds `results.json` (every metric, with paths into the archive), one compact `.events.jsonl` extract per run (tool calls with shortened arguments, skills, hooks, permission events, and usage), one `.diff` per run, `judge-packet.md`, `judge-raw.txt` and `judge.json` (unblinded) per judge, suffixed `.<model>` when there are several, and `report.md` (pass rate per arm and per task with Wilson 95% intervals, premium requests and wall time per arm, the per-run table, and the judge table; add the synthesis by hand after reading every diff).
+
+`node evals/copilot/compliance.mjs results/<stamp> [panel models]` prints arm B routing compliance per run: whether the sessionStart context arrived, whether poteto-mode loaded, which playbooks were read, whether each `task` dispatch used a model from the sheet (the run's worker model plus the panel list), and how many preToolUse denies occurred. It reads the full archived `events.jsonl` when present and the committed extract otherwise.

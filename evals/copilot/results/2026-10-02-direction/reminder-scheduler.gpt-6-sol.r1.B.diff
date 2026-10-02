@@ -1,0 +1,131 @@
+diff --git a/README.md b/README.md
+index b7c8f12..d249c17 100644
+--- a/README.md
++++ b/README.md
+@@ -4,9 +4,10 @@ Schedules reminder deliveries for user accounts. Each reminder stores an IANA ti
+ 
+ Rules:
+ 
+-- Daily and weekly reminders preserve the requested wall-clock time in the user's time zone.
++- Daily and weekly reminders advance from the previous delivery's local calendar date and preserve the requested wall-clock time in the user's time zone, even across daylight-saving changes.
+ - All returned delivery times are ISO UTC strings.
+ - Date math must use `Intl` with the reminder's explicit time zone; the machine time zone is irrelevant.
+ - If a requested local minute does not exist because clocks jump forward, deliver at the next valid minute in that time zone.
++- If a requested local minute occurs twice because clocks fall back, use its first occurrence.
+ 
+ Run the tests with `npm test` (Node 24, no dependencies).
+diff --git a/src/scheduler.ts b/src/scheduler.ts
+index c73b310..2fda651 100644
+--- a/src/scheduler.ts
++++ b/src/scheduler.ts
+@@ -1,8 +1,6 @@
+ import type { Reminder, ScheduledReminder } from "./types.ts";
+ import { advanceLocalDate, localParts, resolveWallTime } from "./timeZone.ts";
+ 
+-const DAY_MS = 24 * 60 * 60 * 1000;
+-
+ function recurrenceDays(reminder: Reminder): number {
+   return reminder.recurrence === "weekly" ? 7 : 1;
+ }
+@@ -16,11 +14,12 @@ export function nextDelivery(reminder: Reminder, nowIso: string): ScheduledRemin
+   const now = new Date(nowIso);
+ 
+   if (reminder.lastSentAt) {
+-    const elapsed = recurrenceDays(reminder) * DAY_MS;
++    const lastLocal = localParts(new Date(reminder.lastSentAt), reminder.timeZone);
++    const nextLocal = withReminderTime(reminder, advanceLocalDate(lastLocal, recurrenceDays(reminder)));
+     return {
+       reminderId: reminder.id,
+       userId: reminder.userId,
+-      deliverAt: new Date(new Date(reminder.lastSentAt).getTime() + elapsed).toISOString(),
++      deliverAt: resolveWallTime(reminder.timeZone, nextLocal),
+     };
+   }
+ 
+diff --git a/src/timeZone.ts b/src/timeZone.ts
+index d9f2970..69422e9 100644
+--- a/src/timeZone.ts
++++ b/src/timeZone.ts
+@@ -54,18 +54,21 @@ export function advanceLocalDate(parts: Pick<LocalParts, "year" | "month" | "day
+ 
+ export function resolveWallTime(timeZone: string, parts: LocalParts): string {
+   const guess = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute);
+-  for (let offset = -720; offset <= 720; offset++) {
++  let nextValid: Date | undefined;
++  let nextWallTime = Infinity;
++  // Cover UTC+14 and a skipped local date before choosing the first valid minute after a gap.
++  for (let offset = -14 * 60; offset <= 48 * 60; offset++) {
+     const instant = new Date(guess + offset * 60_000);
+     const seen = localParts(instant, timeZone);
+-    if (
+-      seen.year === parts.year &&
+-      seen.month === parts.month &&
+-      seen.day === parts.day &&
+-      seen.hour === parts.hour &&
+-      seen.minute === parts.minute
+-    ) {
++    const wallTime = Date.UTC(seen.year, seen.month - 1, seen.day, seen.hour, seen.minute);
++    if (wallTime === guess) {
+       return instant.toISOString();
+     }
++    if (wallTime > guess && wallTime < nextWallTime) {
++      nextWallTime = wallTime;
++      nextValid = instant;
++    }
+   }
+-  return new Date(guess).toISOString();
++  if (nextValid) return nextValid.toISOString();
++  throw new Error(`Cannot resolve wall time in ${timeZone}`);
+ }
+diff --git a/test/scheduler.test.ts b/test/scheduler.test.ts
+index dde34b9..59fd308 100644
+--- a/test/scheduler.test.ts
++++ b/test/scheduler.test.ts
+@@ -25,6 +25,47 @@ test("weekly reminders advance by one week between ordinary winter dates", () =>
+   assert.equal(nextDelivery(weekly, "2026-01-06T12:00:00.000Z")?.deliverAt, "2026-01-12T14:00:00.000Z");
+ });
+ 
++test("daily and weekly reminders retain 9 AM across both New York clock changes", () => {
++  for (const [recurrence, lastSentAt, now, expected] of [
++    ["daily", "2026-03-07T14:00:00.000Z", "2026-03-08T00:00:00.000Z", "2026-03-08T13:00:00.000Z"],
++    ["weekly", "2026-03-02T14:00:00.000Z", "2026-03-08T00:00:00.000Z", "2026-03-09T13:00:00.000Z"],
++    ["daily", "2026-10-31T13:00:00.000Z", "2026-11-01T00:00:00.000Z", "2026-11-01T14:00:00.000Z"],
++    ["weekly", "2026-10-26T13:00:00.000Z", "2026-11-01T00:00:00.000Z", "2026-11-02T14:00:00.000Z"],
++  ] as const) {
++    assert.equal(nextDelivery({ ...base, recurrence, lastSentAt }, now)?.deliverAt, expected, recurrence + " after " + lastSentAt);
++  }
++});
++
++test("a spring-forward gap delivers at the next valid local minute, then resumes the chosen time", () => {
++  for (const [recurrence, lastSentAt, nextDate, nextDeliveryAt] of [
++    ["daily", "2026-03-07T07:30:00.000Z", "2026-03-09T00:00:00.000Z", "2026-03-09T06:30:00.000Z"],
++    ["weekly", "2026-03-01T07:30:00.000Z", "2026-03-15T00:00:00.000Z", "2026-03-15T06:30:00.000Z"],
++  ] as const) {
++    const reminder = { ...base, recurrence, hour: 2, minute: 30, lastSentAt };
++    assert.equal(nextDelivery(reminder, "2026-03-08T00:00:00.000Z")?.deliverAt, "2026-03-08T07:00:00.000Z");
++    assert.equal(nextDelivery({ ...reminder, lastSentAt: "2026-03-08T07:00:00.000Z" }, nextDate)?.deliverAt, nextDeliveryAt);
++  }
++  assert.equal(nextDelivery({ ...base, hour: 2, minute: 30 }, "2026-03-08T00:00:00.000Z")?.deliverAt, "2026-03-08T07:00:00.000Z");
++});
++
++test("a repeated fall-back minute uses the first occurrence", () => {
++  assert.equal(
++    nextDelivery({ ...base, hour: 1, minute: 30, lastSentAt: "2026-10-31T05:30:00.000Z" }, "2026-11-01T00:00:00.000Z")?.deliverAt,
++    "2026-11-01T05:30:00.000Z",
++  );
++});
++
++test("a UTC+14 user's local morning resolves to the previous UTC day", () => {
++  const reminder = { ...base, timeZone: "Pacific/Kiritimati" };
++  assert.equal(nextDelivery(reminder, "2026-01-01T00:00:00.000Z")?.deliverAt, "2026-01-01T19:00:00.000Z");
++  assert.equal(nextDelivery({ ...reminder, lastSentAt: "2025-12-31T19:00:00.000Z" }, "2026-01-01T00:00:00.000Z")?.deliverAt, "2026-01-01T19:00:00.000Z");
++});
++
++test("a skipped local date delivers at its next valid minute", () => {
++  const reminder = { ...base, timeZone: "Pacific/Apia", lastSentAt: "2011-12-29T19:00:00.000Z" };
++  assert.equal(nextDelivery(reminder, "2011-12-29T20:00:00.000Z")?.deliverAt, "2011-12-30T10:00:00.000Z");
++});
++
+ test("paused reminders are omitted from the due list", () => {
+   assert.deepEqual(dueReminders([{ ...base, paused: true }], "2026-01-15T13:00:00.000Z"), []);
+ });

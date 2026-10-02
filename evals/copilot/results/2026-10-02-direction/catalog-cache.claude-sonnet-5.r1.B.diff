@@ -1,0 +1,115 @@
+diff --git a/src/catalog-cache.ts b/src/catalog-cache.ts
+index 78a06a1..e1a9292 100644
+--- a/src/catalog-cache.ts
++++ b/src/catalog-cache.ts
+@@ -16,6 +16,7 @@ export class CatalogCache {
+   private readonly fetchItem: FetchCatalogItem;
+   private readonly now: () => number;
+   private readonly entries = new Map<string, CacheEntry>();
++  private readonly inFlight = new Map<string, Promise<CatalogItem>>();
+ 
+   constructor(options: CatalogCacheOptions) {
+     if (options.ttlMs <= 0) throw new RangeError("ttlMs must be positive");
+@@ -30,7 +31,14 @@ export class CatalogCache {
+       return cached.promise;
+     }
+ 
++    const existing = this.inFlight.get(id);
++    if (existing) {
++      return existing;
++    }
++
+     const promise = this.fetchItem(id);
++    this.inFlight.set(id, promise);
++
+     try {
+       const item = await promise;
+       this.entries.set(id, { expiresAt: this.now() + this.ttlMs, promise });
+@@ -38,6 +46,8 @@ export class CatalogCache {
+     } catch (error) {
+       this.entries.set(id, { expiresAt: this.now() + this.ttlMs, promise });
+       throw error;
++    } finally {
++      this.inFlight.delete(id);
+     }
+   }
+ 
+@@ -46,6 +56,7 @@ export class CatalogCache {
+   }
+ 
+   forget(id: string): boolean {
++    this.inFlight.delete(id);
+     return this.entries.delete(id);
+   }
+ 
+diff --git a/test/catalog-cache.test.ts b/test/catalog-cache.test.ts
+index 92421b7..e594696 100644
+--- a/test/catalog-cache.test.ts
++++ b/test/catalog-cache.test.ts
+@@ -41,6 +41,66 @@ test("expired entries are loaded again", async () => {
+   assert.equal((await cache.getItem("tote")).title, "version-2");
+ });
+ 
++test("concurrent cold lookups for the same id coalesce into one upstream call", async () => {
++  let calls = 0;
++  const cache = new CatalogCache({
++    ttlMs: 1000,
++    fetchItem: async (id) => {
++      calls++;
++      await new Promise((resolve) => setTimeout(resolve, 10));
++      return item(id, `title-${calls}`);
++    },
++  });
++
++  const results = await Promise.all([
++    cache.getItem("mug"),
++    cache.getItem("mug"),
++    cache.getItem("mug"),
++  ]);
++
++  assert.equal(calls, 1, "expected a single coalesced upstream call, not one per caller");
++  assert.deepEqual(results.map((r) => r.title), ["title-1", "title-1", "title-1"]);
++});
++
++test("concurrent failing lookups coalesce instead of each latching their own error entry", async () => {
++  // Without coalescing, N concurrent misses during an outage each
++  // independently call fetchItem and then independently overwrite the cache
++  // entry on completion. Because each straggler's own completion time sets
++  // expiresAt = completionTime + ttlMs, a slow-to-settle duplicate can keep
++  // pushing the negative-cache window forward well past when upstream
++  // actually recovered. Coalescing collapses the stampede to one writer, so
++  // the entry's ttl is anchored to a single, well-defined settlement time.
++  let now = 0;
++  let calls = 0;
++  const cache = new CatalogCache({
++    ttlMs: 50,
++    now: () => now,
++    fetchItem: async () => {
++      calls++;
++      await Promise.resolve();
++      if (calls === 1) throw new Error("upstream unavailable");
++      return item("mug");
++    },
++  });
++
++  const stampede = [cache.getItem("mug"), cache.getItem("mug"), cache.getItem("mug")];
++  for (const p of stampede) p.catch(() => {});
++  await assert.rejects(Promise.all(stampede));
++  assert.equal(calls, 1, "expected the failing stampede to share one upstream call, not one per caller");
++
++  // The single shared failure settled at now=0, so the negative-cache entry
++  // should expire exactly ttlMs later, not be extended by phantom duplicate
++  // writers.
++  now = 49;
++  await assert.rejects(cache.getItem("mug"));
++  assert.equal(calls, 1, "entry should still be cached just before its ttl elapses");
++
++  now = 50;
++  const result = await cache.getItem("mug");
++  assert.equal(result.title, "mug");
++  assert.equal(calls, 2, "upstream should be retried exactly once the ttl has elapsed");
++});
++
+ test("getMany keeps input order and ids separate", async () => {
+   const cache = new CatalogCache({ ttlMs: 1000, fetchItem: async (id) => item(id) });
+   const results = await cache.getMany(["pin", "mug", "pin"]);

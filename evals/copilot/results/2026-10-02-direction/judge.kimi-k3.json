@@ -1,0 +1,475 @@
+{
+  "judgeModel": "kimi-k3",
+  "suffix": ".kimi-k3",
+  "seed": 20261002,
+  "pairs": [
+    {
+      "id": "P1",
+      "task": "catalog-cache",
+      "model": "claude-sonnet-5",
+      "rep": 1,
+      "labels": {
+        "1": "B",
+        "2": "A"
+      },
+      "scores": {
+        "B": {
+          "correctness": 5,
+          "simplicity": 4,
+          "verification": 5,
+          "scope": 4
+        },
+        "A": {
+          "correctness": 2,
+          "simplicity": 3,
+          "verification": 3,
+          "scope": 3
+        }
+      },
+      "preferred": "B",
+      "rationale": "Submission 1 adds a dedicated in-flight map that coalesces concurrent lookups while leaving success and failure TTL behavior untouched, and it verified with new tests plus a manual stampede repro. Submission 2 stops caching failures entirely, which directly changes the time-to-live behavior the request said to preserve, and it leaks pending entries into the cache map."
+    },
+    {
+      "id": "P2",
+      "task": "catalog-cache",
+      "model": "claude-sonnet-5",
+      "rep": 2,
+      "labels": {
+        "1": "B",
+        "2": "A"
+      },
+      "scores": {
+        "B": {
+          "correctness": 4,
+          "simplicity": 4,
+          "verification": 4,
+          "scope": 5
+        },
+        "A": {
+          "correctness": 5,
+          "simplicity": 3,
+          "verification": 4,
+          "scope": 5
+        }
+      },
+      "preferred": "A",
+      "rationale": "Both preserve the existing failure-caching TTL while coalescing. Submission 1's Infinity-sentinel entry inside the main cache subtly changes observable state (e.g. size during a fetch), while Submission 2's separate pending map keeps the cache clean and its tests explicitly lock in the unchanged negative-cache TTL window."
+    },
+    {
+      "id": "P3",
+      "task": "catalog-cache",
+      "model": "claude-sonnet-5",
+      "rep": 3,
+      "labels": {
+        "1": "B",
+        "2": "A"
+      },
+      "scores": {
+        "B": {
+          "correctness": 5,
+          "simplicity": 5,
+          "verification": 4,
+          "scope": 5
+        },
+        "A": {
+          "correctness": 2,
+          "simplicity": 4,
+          "verification": 4,
+          "scope": 3
+        }
+      },
+      "preferred": "B",
+      "rationale": "Submission 1 is the minimal correct fix: a per-id in-flight map with finally-cleanup, TTL semantics unchanged, and tests covering both success and failing stampedes. Submission 2 coalesces correctly but deletes failed entries, changing the failure TTL behavior the request explicitly said not to change."
+    },
+    {
+      "id": "P4",
+      "task": "catalog-cache",
+      "model": "gpt-6-sol",
+      "rep": 1,
+      "labels": {
+        "1": "B",
+        "2": "A"
+      },
+      "scores": {
+        "B": {
+          "correctness": 3,
+          "simplicity": 4,
+          "verification": 4,
+          "scope": 3
+        },
+        "A": {
+          "correctness": 3,
+          "simplicity": 3,
+          "verification": 5,
+          "scope": 3
+        }
+      },
+      "preferred": "B",
+      "rationale": "Both submissions stop caching failures, which violates the 'without changing the time-to-live behavior' constraint. Between them, Submission 1 is the simpler implementation (plain promise map plus a stale-write guard), while Submission 2 adds a needless PendingEntry wrapper type and changes forget()'s return contract; Submission 2's broader tests don't outweigh that."
+    },
+    {
+      "id": "P5",
+      "task": "catalog-cache",
+      "model": "gpt-6-sol",
+      "rep": 2,
+      "labels": {
+        "1": "A",
+        "2": "B"
+      },
+      "scores": {
+        "A": {
+          "correctness": 3,
+          "simplicity": 4,
+          "verification": 4,
+          "scope": 3
+        },
+        "B": {
+          "correctness": 3,
+          "simplicity": 5,
+          "verification": 4,
+          "scope": 4
+        }
+      },
+      "preferred": "B",
+      "rationale": "Both make the same unrequested change of no longer caching failures, so correctness is a wash. Submission 2 is the tightest possible diff (a pending map plus a finally cleanup) with no forget() contract changes, whereas Submission 1 also alters forget()'s return value and adds a stale-write guard nobody asked for."
+    },
+    {
+      "id": "P6",
+      "task": "catalog-cache",
+      "model": "gpt-6-sol",
+      "rep": 3,
+      "labels": {
+        "1": "A",
+        "2": "B"
+      },
+      "scores": {
+        "A": {
+          "correctness": 3,
+          "simplicity": 3,
+          "verification": 4,
+          "scope": 3
+        },
+        "B": {
+          "correctness": 3,
+          "simplicity": 4,
+          "verification": 4,
+          "scope": 4
+        }
+      },
+      "preferred": "B",
+      "rationale": "Both coalesce correctly but drop negative caching, changing TTL behavior. Submission 1's discriminated-union CacheEntry refactor also changes what size reports mid-flight and is more invasive; Submission 2's small in-flight map is simpler and closer to the requested fix."
+    },
+    {
+      "id": "P7",
+      "task": "payout-split",
+      "model": "claude-sonnet-5",
+      "rep": 1,
+      "labels": {
+        "1": "A",
+        "2": "B"
+      },
+      "scores": {
+        "A": {
+          "correctness": 4,
+          "simplicity": 3,
+          "verification": 2,
+          "scope": 4
+        },
+        "B": {
+          "correctness": 5,
+          "simplicity": 4,
+          "verification": 4,
+          "scope": 5
+        }
+      },
+      "preferred": "B",
+      "rationale": "Submission 2 implements the largest-remainder method on the magnitude and reapplies the sign, so refunds are the exact negation of payouts, and it commits tests proving sum-exactness, tie ordering, and refund symmetry. Submission 1's BigInt floor-division machinery is more complex, handles refunds asymmetrically, and—critically—adds no tests, only an ephemeral manual script."
+    },
+    {
+      "id": "P8",
+      "task": "payout-split",
+      "model": "claude-sonnet-5",
+      "rep": 2,
+      "labels": {
+        "1": "A",
+        "2": "B"
+      },
+      "scores": {
+        "A": {
+          "correctness": 4,
+          "simplicity": 4,
+          "verification": 3,
+          "scope": 5
+        },
+        "B": {
+          "correctness": 4,
+          "simplicity": 4,
+          "verification": 4,
+          "scope": 5
+        }
+      },
+      "preferred": "tie",
+      "rationale": "Both are correct largest-remainder implementations with deterministic tie-breaking and sign-based refund handling, and neither commits new tests. Submission 1 uses integer remainders and a flat structure; Submission 2 uses a slightly unusual recursion for refunds but backed it with thousands of randomized stress checks, so the simplicity and verification advantages roughly cancel out."
+    },
+    {
+      "id": "P9",
+      "task": "payout-split",
+      "model": "claude-sonnet-5",
+      "rep": 3,
+      "labels": {
+        "1": "A",
+        "2": "B"
+      },
+      "scores": {
+        "A": {
+          "correctness": 4,
+          "simplicity": 4,
+          "verification": 2,
+          "scope": 5
+        },
+        "B": {
+          "correctness": 5,
+          "simplicity": 4,
+          "verification": 5,
+          "scope": 5
+        }
+      },
+      "preferred": "B",
+      "rationale": "Both implement the same sound largest-remainder approach with sign-based refunds. Submission 2 additionally commits focused tests (exact tie allocation 34/33/33 and refund negation) and ran 7,000 randomized reconciliation checks, while Submission 1 added no tests and verified only with a small manual script."
+    },
+    {
+      "id": "P10",
+      "task": "payout-split",
+      "model": "gpt-6-sol",
+      "rep": 1,
+      "labels": {
+        "1": "A",
+        "2": "B"
+      },
+      "scores": {
+        "A": {
+          "correctness": 5,
+          "simplicity": 2,
+          "verification": 5,
+          "scope": 3
+        },
+        "B": {
+          "correctness": 4,
+          "simplicity": 3,
+          "verification": 5,
+          "scope": 5
+        }
+      },
+      "preferred": "B",
+      "rationale": "Submission 1 is very robust and heavily verified, but the decimal-string-to-BigInt weight parsing is significant over-engineering for an integer-cents fix, and it introduces a new throwing behavior plus README edits beyond the ask. Submission 2's floor-plus-correction loop is less elegant but far simpler, stays in scope, and was verified just as thoroughly with reconciliation-based exhaustive checks."
+    },
+    {
+      "id": "P11",
+      "task": "payout-split",
+      "model": "gpt-6-sol",
+      "rep": 2,
+      "labels": {
+        "1": "B",
+        "2": "A"
+      },
+      "scores": {
+        "B": {
+          "correctness": 4,
+          "simplicity": 4,
+          "verification": 5,
+          "scope": 5
+        },
+        "A": {
+          "correctness": 5,
+          "simplicity": 3,
+          "verification": 5,
+          "scope": 4
+        }
+      },
+      "preferred": "B",
+      "rationale": "Both fix the sum drift with a largest-remainder scheme and correct for float rounding, backed by strong randomized verification. Submission 1 is a single straightforward code path with no API or spec changes, whereas Submission 2 adds a dual-path quota computation for infinite weight sums and a new RangeError on unsafe amounts—extra complexity and behavior change beyond the request."
+    },
+    {
+      "id": "P12",
+      "task": "payout-split",
+      "model": "gpt-6-sol",
+      "rep": 3,
+      "labels": {
+        "1": "B",
+        "2": "A"
+      },
+      "scores": {
+        "B": {
+          "correctness": 4,
+          "simplicity": 4,
+          "verification": 5,
+          "scope": 5
+        },
+        "A": {
+          "correctness": 5,
+          "simplicity": 2,
+          "verification": 4,
+          "scope": 4
+        }
+      },
+      "preferred": "B",
+      "rationale": "Submission 1's float quota with a bounded correction loop is simple, well-tested, and exhaustively verified (including refund symmetry sweeps). Submission 2's bit-level float decomposition into BigInt is exact but considerable over-engineering for the reported cent-level bug, and it adds a new throwing contract and README changes outside the ask."
+    },
+    {
+      "id": "P13",
+      "task": "reminder-scheduler",
+      "model": "claude-sonnet-5",
+      "rep": 1,
+      "labels": {
+        "1": "B",
+        "2": "A"
+      },
+      "scores": {
+        "B": {
+          "correctness": 5,
+          "simplicity": 5,
+          "verification": 4,
+          "scope": 5
+        },
+        "A": {
+          "correctness": 5,
+          "simplicity": 5,
+          "verification": 3,
+          "scope": 5
+        }
+      },
+      "preferred": "tie",
+      "rationale": "Both make the identical correct change—anchor on the last send's local calendar date and re-resolve the wall time through the existing helpers, covering daily and weekly recurrences with passing tests. Submission 1 has a slightly richer verification trail (repro commit plus a manual probe), Submission 2 covers both DST directions across the two tests; the differences are immaterial."
+    },
+    {
+      "id": "P14",
+      "task": "reminder-scheduler",
+      "model": "claude-sonnet-5",
+      "rep": 2,
+      "labels": {
+        "1": "A",
+        "2": "B"
+      },
+      "scores": {
+        "A": {
+          "correctness": 4,
+          "simplicity": 5,
+          "verification": 3,
+          "scope": 5
+        },
+        "B": {
+          "correctness": 4,
+          "simplicity": 5,
+          "verification": 4,
+          "scope": 5
+        }
+      },
+      "preferred": "B",
+      "rationale": "Both apply the same minimal fix in the lastSentAt branch and preserve the original immediate-return semantics. Submission 2 demonstrated the bug manually across both transition directions and committed a failing-test repro before fixing, while Submission 1's recorded verification is just finding files and running the suite once."
+    },
+    {
+      "id": "P15",
+      "task": "reminder-scheduler",
+      "model": "claude-sonnet-5",
+      "rep": 3,
+      "labels": {
+        "1": "B",
+        "2": "A"
+      },
+      "scores": {
+        "B": {
+          "correctness": 5,
+          "simplicity": 4,
+          "verification": 3,
+          "scope": 5
+        },
+        "A": {
+          "correctness": 5,
+          "simplicity": 5,
+          "verification": 3,
+          "scope": 5
+        }
+      },
+      "preferred": "A",
+      "rationale": "Both correctly route recurring reminders through local wall-time recomputation with skip-ahead. Submission 2's ternary unifies the two paths into less code and its tests cover both recurrence types across both DST directions, whereas Submission 1 duplicates the advance loop and only tests the daily spring-forward case despite the 'every recurrence type' ask."
+    },
+    {
+      "id": "P16",
+      "task": "reminder-scheduler",
+      "model": "gpt-6-sol",
+      "rep": 1,
+      "labels": {
+        "1": "A",
+        "2": "B"
+      },
+      "scores": {
+        "A": {
+          "correctness": 5,
+          "simplicity": 4,
+          "verification": 4,
+          "scope": 4
+        },
+        "B": {
+          "correctness": 4,
+          "simplicity": 4,
+          "verification": 5,
+          "scope": 4
+        }
+      },
+      "preferred": "A",
+      "rationale": "Both fix the scheduler and properly repair resolveWallTime's gap/first-occurrence handling with README updates and good tests. Submission 1 keeps the skip-elapsed-occurrences loop so stale reminders still schedule correctly, and its parametrized daily/weekly tests across both transitions are comprehensive; Submission 2's lastSentAt branch returns immediately without that safeguard."
+    },
+    {
+      "id": "P17",
+      "task": "reminder-scheduler",
+      "model": "gpt-6-sol",
+      "rep": 2,
+      "labels": {
+        "1": "A",
+        "2": "B"
+      },
+      "scores": {
+        "A": {
+          "correctness": 5,
+          "simplicity": 3,
+          "verification": 4,
+          "scope": 4
+        },
+        "B": {
+          "correctness": 4,
+          "simplicity": 4,
+          "verification": 5,
+          "scope": 4
+        }
+      },
+      "preferred": "B",
+      "rationale": "Both fix the scheduler and improve resolveWallTime. Submission 1's offset-candidate-plus-binary-search resolver is markedly more complex than needed for a scan of a few thousand minutes, while Submission 2's straightforward extended scan achieves the same result, was verified harder (including a TZ-override suite run and southern-hemisphere/skipped-date probes), and its simpler resolver is easier to trust."
+    },
+    {
+      "id": "P18",
+      "task": "reminder-scheduler",
+      "model": "gpt-6-sol",
+      "rep": 3,
+      "labels": {
+        "1": "A",
+        "2": "B"
+      },
+      "scores": {
+        "A": {
+          "correctness": 4,
+          "simplicity": 3,
+          "verification": 4,
+          "scope": 4
+        },
+        "B": {
+          "correctness": 5,
+          "simplicity": 3,
+          "verification": 5,
+          "scope": 4
+        }
+      },
+      "preferred": "B",
+      "rationale": "Both add wall-time recomputation, a day-skip fast-forward, and a next-valid-minute resolver. Submission 2's resolver range also covers skipped local dates (Apia 2011) which Submission 1's +720-minute window cannot, and Submission 2 verified more broadly—stale-reminder performance, Lord Howe half-hour jumps, and zones beyond UTC+12—making it the more trustworthy merge."
+    }
+  ]
+}
