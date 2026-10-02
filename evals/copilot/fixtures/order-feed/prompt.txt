@@ -1,0 +1,1 @@
+A partner syncing orders reports that some orders never show up and others appear twice, mostly during flash sales when many purchases land at the same instant. Please fix the paginated order feed without changing the existing cursor API shape or the supported sort directions.

@@ -1,0 +1,110 @@
+{
+  "judgeModel": "gpt-5.5",
+  "seed": 4243,
+  "pairs": [
+    {
+      "id": "P1",
+      "task": "billing-core",
+      "model": "claude-sonnet-5",
+      "rep": 1,
+      "labels": {
+        "1": "A",
+        "2": "B"
+      },
+      "scores": {
+        "A": {
+          "correctness": 5,
+          "simplicity": 5,
+          "verification": 4,
+          "scope": 5
+        },
+        "B": {
+          "correctness": 5,
+          "simplicity": 5,
+          "verification": 5,
+          "scope": 5
+        }
+      },
+      "preferred": "B",
+      "rationale": "Both submissions fix the root cause by avoiding mutation of the cached discount rule, preserving behavior while stopping promo leakage and compounding. Submission 2 is preferable because it adds a focused regression test that captures the leak scenario, while submission 1 only verifies manually plus the existing suite."
+    },
+    {
+      "id": "P2",
+      "task": "contacts-import",
+      "model": "claude-sonnet-5",
+      "rep": 1,
+      "labels": {
+        "1": "B",
+        "2": "A"
+      },
+      "scores": {
+        "B": {
+          "correctness": 5,
+          "simplicity": 5,
+          "verification": 5,
+          "scope": 5
+        },
+        "A": {
+          "correctness": 5,
+          "simplicity": 4,
+          "verification": 4,
+          "scope": 5
+        }
+      },
+      "preferred": "B",
+      "rationale": "Both implementations correctly replace the O(n^2) scan with normalized seen sets while preserving first-occurrence semantics and blank-field behavior. Submission 1 is slightly better because it provides stronger performance and same-kept-IDs evidence, while submission 2 adds a more verbose explanatory comment and less direct equivalence verification."
+    },
+    {
+      "id": "P3",
+      "task": "partner-clients",
+      "model": "claude-sonnet-5",
+      "rep": 1,
+      "labels": {
+        "1": "B",
+        "2": "A"
+      },
+      "scores": {
+        "B": {
+          "correctness": 5,
+          "simplicity": 4,
+          "verification": 5,
+          "scope": 5
+        },
+        "A": {
+          "correctness": 5,
+          "simplicity": 3,
+          "verification": 4,
+          "scope": 5
+        }
+      },
+      "preferred": "B",
+      "rationale": "Both submissions extract the retry loops into a shared helper and appear to preserve the distinct attempt counts, backoff timing, retry conditions, and exhaustion behavior. Submission 1 has the simpler helper shape and much stronger characterization coverage, while submission 2 is more configurable and callback-heavy than necessary."
+    },
+    {
+      "id": "P4",
+      "task": "stock-report",
+      "model": "claude-sonnet-5",
+      "rep": 1,
+      "labels": {
+        "1": "A",
+        "2": "B"
+      },
+      "scores": {
+        "A": {
+          "correctness": 5,
+          "simplicity": 5,
+          "verification": 3,
+          "scope": 5
+        },
+        "B": {
+          "correctness": 5,
+          "simplicity": 5,
+          "verification": 4,
+          "scope": 5
+        }
+      },
+      "preferred": "B",
+      "rationale": "Both submissions add a correct CSV format using the table columns, CRLF row separators, and proper RFC-style escaping for commas, quotes, and line breaks. Submission 2 is preferable because it adds focused CLI tests for CSV output and escaping, though its verification still does not explicitly cover embedded line breaks."
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+Users in New York say their 9 AM morning reminders have been arriving an hour late since the clocks changed. Please fix reminder scheduling so recurring deliveries stay at the requested local time for each user's IANA time zone, including the same behavior for every recurrence type we support.

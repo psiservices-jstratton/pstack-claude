@@ -1,0 +1,66 @@
+diff --git a/src/cursor.ts b/src/cursor.ts
+index 453f4a0..23cc9e4 100644
+--- a/src/cursor.ts
++++ b/src/cursor.ts
+@@ -1,4 +1,4 @@
+-export type Cursor = { createdAt: string };
++export type Cursor = { createdAt: string; id: string };
+ 
+ export function encodeCursor(cursor: Cursor): string {
+   return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
+@@ -8,7 +8,9 @@ export function decodeCursor(token: string | undefined): Cursor | undefined {
+   if (!token) return undefined;
+   try {
+     const parsed = JSON.parse(Buffer.from(token, "base64url").toString("utf8")) as Partial<Cursor>;
+-    return typeof parsed.createdAt === "string" ? { createdAt: parsed.createdAt } : undefined;
++    return typeof parsed.createdAt === "string" && typeof parsed.id === "string"
++      ? { createdAt: parsed.createdAt, id: parsed.id }
++      : undefined;
+   } catch {
+     return undefined;
+   }
+diff --git a/src/feed.ts b/src/feed.ts
+index 2bd7e4f..db12c59 100644
+--- a/src/feed.ts
++++ b/src/feed.ts
+@@ -1,34 +1,28 @@
+ import { decodeCursor, encodeCursor } from "./cursor.ts";
+ import type { Direction, FeedOptions, Order, OrderPage } from "./types.ts";
+ 
+-function compareByCreatedAt(direction: Direction): (a: Order, b: Order) => number {
++function compareOrders(direction: Direction): (a: Order, b: Order) => number {
+   const multiplier = direction === "asc" ? 1 : -1;
+-  return (a, b) => multiplier * a.createdAt.localeCompare(b.createdAt);
++  return (a, b) => multiplier * (a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+ }
+ 
+ function sortedOrders(orders: Order[], options: FeedOptions): Order[] {
+   const direction = options.direction ?? "asc";
+   return orders
+     .filter((order) => !options.status || order.status === options.status)
+-    .toSorted(compareByCreatedAt(direction));
+-}
+-
+-function startAfterCursor(sorted: Order[], cursor: ReturnType<typeof decodeCursor>, direction: Direction): number {
+-  if (!cursor) return 0;
+-  const index = sorted.findIndex((order) => direction === "asc" ? order.createdAt > cursor.createdAt : order.createdAt < cursor.createdAt);
+-  return index === -1 ? sorted.length : index;
++    .toSorted(compareOrders(direction));
+ }
+ 
+ export function listOrders(orders: Order[], options: FeedOptions): OrderPage {
+   const direction = options.direction ?? "asc";
+   const sorted = sortedOrders(orders, { ...options, direction });
+   const cursor = decodeCursor(options.cursor);
+-  const start = startAfterCursor(sorted, cursor, direction);
+-  const page = sorted.slice(start, start + options.limit);
++  const start = cursor ? sorted.findIndex((order) => order.createdAt === cursor.createdAt && order.id === cursor.id) + 1 : 0;
++  const page = sorted.slice(Math.max(0, start), Math.max(0, start) + options.limit);
+   const last = page.at(-1);
+   return {
+     orders: page,
+-    nextCursor: last && sorted.length > start + page.length ? encodeCursor({ createdAt: last.createdAt }) : undefined,
++    nextCursor: last && sorted.length > Math.max(0, start) + page.length ? encodeCursor({ createdAt: last.createdAt, id: last.id }) : undefined,
+   };
+ }
+ 

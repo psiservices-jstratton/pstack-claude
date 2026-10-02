@@ -1,0 +1,1 @@
+Importing the latest CRM export (about 50k contacts) hangs for minutes on the dedupe step before anything gets uploaded. Can you make the import fast? The set of contacts we keep has to stay exactly the same as it is today.

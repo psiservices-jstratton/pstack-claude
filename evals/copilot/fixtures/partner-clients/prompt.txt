@@ -1,0 +1,1 @@
+The retry logic in src/clients has been copy-pasted into all three partner clients and the copies have drifted apart. Please pull it into one shared helper that the three clients use. Each client has to keep behaving exactly as it does today, since partners and on-call runbooks depend on the current timing.

@@ -1,0 +1,41 @@
+diff --git a/src/split.ts b/src/split.ts
+index d278c95..23f297d 100644
+--- a/src/split.ts
++++ b/src/split.ts
+@@ -6,8 +6,32 @@ export function splitPayout(amountCents: number, recipients: Recipient[]): Share
+   const weight = totalWeight(recipients);
+   if (weight === 0) return recipients.map((recipient) => ({ recipientId: recipient.id, cents: 0 }));
+ 
+-  return recipients.map((recipient) => ({
+-    recipientId: recipient.id,
+-    cents: Math.round((amountCents * recipient.weight) / weight),
+-  }));
++  const sign = amountCents < 0 ? -1 : 1;
++  const absoluteAmount = Math.abs(amountCents);
++  const allocations = recipients.map((recipient, index) => {
++    const numerator = absoluteAmount * recipient.weight;
++    return {
++      recipient,
++      index,
++      base: Math.floor(numerator / weight),
++      remainder: numerator % weight,
++    };
++  });
++
++  let remaining = absoluteAmount - allocations.reduce((sum, allocation) => sum + allocation.base, 0);
++  const extraIndexes = new Set(
++    allocations
++      .filter((allocation) => allocation.remainder > 0)
++      .toSorted((a, b) => b.remainder - a.remainder || a.index - b.index)
++      .slice(0, remaining)
++      .map((allocation) => allocation.index),
++  );
++
++  return allocations.map((allocation) => {
++    const extra = extraIndexes.has(allocation.index) && remaining-- > 0 ? 1 : 0;
++    return {
++      recipientId: allocation.recipient.id,
++      cents: sign * (allocation.base + extra),
++    };
++  });
+ }

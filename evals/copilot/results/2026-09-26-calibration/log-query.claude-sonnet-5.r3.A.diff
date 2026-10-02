@@ -1,0 +1,22 @@
+diff --git a/src/query.ts b/src/query.ts
+index 31ad47d..8980c73 100644
+--- a/src/query.ts
++++ b/src/query.ts
+@@ -11,14 +11,14 @@ export function queryLogLines(
+   terms: readonly string[],
+   options: LogSearchOptions = {},
+ ): string[] {
+-  const wanted = normalizeTerms(terms);
++  const wanted = normalizeTerms(terms).map((term) => term.toLowerCase());
+   const matches: string[] = [];
+ 
+   for (const line of lines) {
++    const lowerLine = line.toLowerCase();
+     let matched = true;
+     for (const term of wanted) {
+-      const pattern = new RegExp(term, "i");
+-      if (!pattern.test(line)) {
++      if (!lowerLine.includes(term)) {
+         matched = false;
+         break;
+       }

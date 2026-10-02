@@ -1,0 +1,153 @@
+diff --git a/README.md b/README.md
+index ef5c317..890650a 100644
+--- a/README.md
++++ b/README.md
+@@ -1,5 +1,7 @@
+ # settings-loader
+ 
+-Loads service settings from defaults plus one JSON file. The schema declares every setting and its expected type, including nested sections.
++Loads service settings from defaults, one JSON file, and environment variable overrides. The schema declares every setting and its expected type, including nested sections.
++
++Environment overrides use the `APP_` prefix, with nested keys joined by double underscores (e.g. `db.port` -> `APP_DB__PORT`). Variable names are matched case-insensitively, values are coerced to the declared schema type, and unmatched variables are ignored. Environment values take precedence over the JSON file. Pass a custom map via `loadSettings({ env })`; it defaults to `process.env`.
+ 
+ Run with `npm test` on Node 24.
+diff --git a/src/env.ts b/src/env.ts
+new file mode 100644
+index 0000000..0729e39
+--- /dev/null
++++ b/src/env.ts
+@@ -0,0 +1,56 @@
++import { isSchemaObject } from "./schema.ts";
++import type { LeafType, Settings, SettingsSchema } from "./schema.ts";
++
++export type EnvMap = Record<string, string | undefined>;
++
++const ENV_PREFIX = "APP_";
++
++function envKeyFor(path: string[]): string {
++  return ENV_PREFIX + path.map((segment) => segment.toUpperCase()).join("__");
++}
++
++function coerce(dotted: string, type: LeafType, raw: string): unknown {
++  switch (type) {
++    case "string":
++      return raw;
++    case "number": {
++      const value = Number(raw);
++      if (raw.trim() === "" || Number.isNaN(value)) {
++        throw new Error(`${dotted} could not be parsed as a number`);
++      }
++      return value;
++    }
++    case "boolean": {
++      const normalized = raw.trim().toLowerCase();
++      if (normalized === "true" || normalized === "1") return true;
++      if (normalized === "false" || normalized === "0") return false;
++      throw new Error(`${dotted} could not be parsed as a boolean`);
++    }
++  }
++}
++
++export function readEnvSettings(schema: SettingsSchema, env: EnvMap, path: string[] = []): Settings {
++  const lookup = new Map<string, string>();
++  for (const [key, value] of Object.entries(env)) {
++    if (value !== undefined) lookup.set(key.toUpperCase(), value);
++  }
++
++  const walk = (node: SettingsSchema, currentPath: string[]): Settings => {
++    const result: Settings = {};
++    for (const [key, child] of Object.entries(node)) {
++      const childPath = [...currentPath, key];
++      if (isSchemaObject(child)) {
++        const nested = walk(child, childPath);
++        if (Object.keys(nested).length > 0) result[key] = nested;
++        continue;
++      }
++      const envKey = envKeyFor(childPath);
++      const raw = lookup.get(envKey);
++      if (raw === undefined) continue;
++      result[key] = coerce(childPath.join("."), child, raw);
++    }
++    return result;
++  };
++
++  return walk(schema, path);
++}
+diff --git a/src/index.ts b/src/index.ts
+index b4a55eb..b7d07fb 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -2,3 +2,4 @@ export { loadSettings, getSetting } from "./loader.ts";
+ export { defaultSchema, defaultSettings, validateSettings } from "./schema.ts";
+ export type { LoadOptions } from "./loader.ts";
+ export type { Settings, SettingsSchema } from "./schema.ts";
++export type { EnvMap } from "./env.ts";
+diff --git a/src/loader.ts b/src/loader.ts
+index c9c3f02..e50627a 100644
+--- a/src/loader.ts
++++ b/src/loader.ts
+@@ -1,3 +1,5 @@
++import { readEnvSettings } from "./env.ts";
++import type { EnvMap } from "./env.ts";
+ import { readJsonFile } from "./files.ts";
+ import { mergeSettings } from "./merge.ts";
+ import { defaultSchema, defaultSettings, validateSettings } from "./schema.ts";
+@@ -7,13 +9,16 @@ export type LoadOptions = {
+   path?: string;
+   schema?: SettingsSchema;
+   defaults?: Settings;
++  env?: EnvMap;
+ };
+ 
+ export function loadSettings(options: LoadOptions = {}): Settings {
+   const schema = options.schema ?? defaultSchema;
+   const defaults = options.defaults ?? defaultSettings;
++  const env = options.env ?? process.env;
+   const fromFile = readJsonFile(options.path);
+-  const merged = mergeSettings(defaults, fromFile);
++  const fromEnv = readEnvSettings(schema, env);
++  const merged = mergeSettings(mergeSettings(defaults, fromFile), fromEnv);
+   validateSettings(merged, schema);
+   return merged;
+ }
+diff --git a/test/loader.test.ts b/test/loader.test.ts
+index f3c89b9..cc8e7e8 100644
+--- a/test/loader.test.ts
++++ b/test/loader.test.ts
+@@ -32,3 +32,36 @@ test("rejects settings outside the declared schema", () => {
+     /service\.workers/,
+   );
+ });
++
++test("environment overrides beat the JSON file and are coerced to the schema type", () => {
++  const settings = loadSettings({
++    path: dataFile,
++    env: {
++      app_db__port: "6543",
++      APP_DB__SSL: "true",
++      APP_FEATURES__SIGNUP: "0",
++      APP_SERVICE__WORKERS: "4",
++    },
++  });
++  assert.equal(getSetting(settings, "db.port"), 6543);
++  assert.equal(getSetting(settings, "db.ssl"), true);
++  assert.equal(getSetting(settings, "features.signup"), false);
++  assert.equal(getSetting(settings, "service.host"), "0.0.0.0");
++});
++
++test("defaults to process.env when no env option is provided", () => {
++  process.env.APP_SERVICE__PORT = "6000";
++  try {
++    const settings = loadSettings();
++    assert.equal(getSetting(settings, "service.port"), 6000);
++  } finally {
++    delete process.env.APP_SERVICE__PORT;
++  }
++});
++
++test("throws with the dotted setting name when a number cannot be parsed", () => {
++  assert.throws(
++    () => loadSettings({ env: { APP_SERVICE__PORT: "not-a-number" } }),
++    /service\.port/,
++  );
++});

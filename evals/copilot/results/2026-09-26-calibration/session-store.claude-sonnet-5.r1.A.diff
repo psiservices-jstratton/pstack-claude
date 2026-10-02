@@ -1,0 +1,31 @@
+diff --git a/src/session-store.ts b/src/session-store.ts
+index 8343569..eb8bff7 100644
+--- a/src/session-store.ts
++++ b/src/session-store.ts
+@@ -27,12 +27,25 @@ export class SessionStore {
+   }
+ 
+   get(id: string): SessionRecord | undefined {
+-    return this.entries.get(id)?.record;
++    const entry = this.entries.get(id);
++    if (!entry) return undefined;
++    // Refresh recency: move this entry to the end so LRU eviction doesn't
++    // remove sessions that are actually being used constantly.
++    this.entries.delete(id);
++    this.entries.set(id, entry);
++    return entry.record;
+   }
+ 
+   set(id: string, record: SessionRecord): void {
+     const bytes = sessionBytes(record);
+     if (bytes > this.maxBytes) throw new RangeError("session is larger than the store budget");
++    const existing = this.entries.get(id);
++    if (existing) {
++      // Subtract the previous entry's size before replacing it, otherwise
++      // currentBytes accumulates stale bytes and drifts upward over time.
++      this.currentBytes -= existing.bytes;
++      this.entries.delete(id);
++    }
+     this.entries.set(id, { record, bytes });
+     this.currentBytes += bytes;
+     this.trimToBudget();

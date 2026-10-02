@@ -1,0 +1,115 @@
+diff --git a/src/help.ts b/src/help.ts
+index 7b2996e..4ab0a71 100644
+--- a/src/help.ts
++++ b/src/help.ts
+@@ -10,20 +10,62 @@ function flagLabel(flag: Flag): string {
+   return cyan(flag.name);
+ }
+ 
++// Greedily wraps `text` into lines no longer than `maxWidth`. A single word
++// longer than `maxWidth` is kept whole on its own line rather than split.
++function wrapWords(text: string, maxWidth: number): string[] {
++  const words = text.split(" ").filter((word) => word.length > 0);
++  if (!words.length) return [""];
++
++  const lines: string[] = [];
++  let current = "";
++  for (const word of words) {
++    if (!current) {
++      current = word;
++      continue;
++    }
++    if (current.length + 1 + word.length <= maxWidth) {
++      current += ` ${word}`;
++    } else {
++      lines.push(current);
++      current = word;
++    }
++  }
++  if (current) lines.push(current);
++  return lines;
++}
++
++// Renders a label/description entry, wrapping the description to `width`
++// (when provided) and aligning continuation lines under the description
++// column, which begins at `descColumn`.
++function renderEntry(label: string, labelWidth: number, description: string, descColumn: number, width?: number): string[] {
++  const prefix = `  ${padVisible(label, labelWidth)}  `;
++  if (width === undefined) {
++    return [`${prefix}${description}`];
++  }
++
++  const available = Math.max(1, width - descColumn);
++  const wrapped = wrapWords(description, available);
++  const indent = " ".repeat(descColumn);
++  return wrapped.map((line, index) => (index === 0 ? `${prefix}${line}` : `${indent}${line}`));
++}
++
+ export function formatHelp(commands: Command[] = defaultCommands, options: HelpOptions = {}): string {
+   const program = options.program ?? "notes";
++  const width = options.width;
+   const lines = [`Usage: ${program} <command> [options]`, "", "Commands:"];
+   const commandWidth = maxLength(commands.map((command) => command.name), 7);
++  const commandDescColumn = 2 + commandWidth + 2;
+   for (const command of commands) {
+-    lines.push(`  ${padVisible(command.name, commandWidth)}  ${command.summary}`);
++    lines.push(...renderEntry(command.name, commandWidth, command.summary, commandDescColumn, width));
+   }
+ 
+   const flags = commands.flatMap((command) => command.flags ?? []);
+   if (flags.length) {
+     lines.push("", "Flags:");
+     const flagWidth = maxLength(flags.map((flag) => flag.name), 6);
++    const flagDescColumn = 2 + flagWidth + 2;
+     for (const flag of flags) {
+-      lines.push(`  ${padVisible(flagLabel(flag), flagWidth)}  ${flag.description}`);
++      lines.push(...renderEntry(flagLabel(flag), flagWidth, flag.description, flagDescColumn, width));
+     }
+   }
+   return `${lines.join("\n")}\n`;
+diff --git a/test/help.test.ts b/test/help.test.ts
+index bfe54c4..08ec5a6 100644
+--- a/test/help.test.ts
++++ b/test/help.test.ts
+@@ -23,3 +23,41 @@ test("exports helpers for measuring terminal text", () => {
+   assert.equal(stripAnsi("\u001b[36m--dry-run\u001b[0m"), "--dry-run");
+   assert.equal(visibleLength("\u001b[36m--dry-run\u001b[0m"), 9);
+ });
++
++test("keeps output unchanged when width is not given, even for long descriptions", () => {
++  assert.equal(formatHelp(), expected);
++});
++
++test("does not wrap when descriptions already fit the given width", () => {
++  assert.equal(formatHelp(undefined, { width: 200 }), expected);
++});
++
++test("wraps descriptions to the given width and aligns continuation lines", () => {
++  const wrapped = formatHelp(undefined, { width: 30 });
++  assert.equal(
++    wrapped,
++    [
++      "Usage: notes <command> [options]",
++      "",
++      "Commands:",
++      "  publish  Publish the current",
++      "           draft",
++      "  list     List recent drafts",
++      "",
++      "Flags:",
++      "  \u001b[36m--dry-run\u001b[0m  Show what would",
++      "             change without",
++      "             saving",
++      "  \u001b[36m--tag\u001b[0m      Limit the command",
++      "             to one tag",
++      "",
++    ].join("\n"),
++  );
++});
++
++test("puts a single word longer than the available width on its own line", () => {
++  const wrapped = formatHelp(undefined, { width: 5 });
++  const lines = wrapped.split("\n");
++  assert.ok(lines.includes("  publish  Publish"));
++  assert.ok(lines.includes("           the"));
++});

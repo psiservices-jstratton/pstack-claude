@@ -1,0 +1,100 @@
+diff --git a/src/split.ts b/src/split.ts
+index d278c95..d6f7536 100644
+--- a/src/split.ts
++++ b/src/split.ts
+@@ -6,8 +6,20 @@ export function splitPayout(amountCents: number, recipients: Recipient[]): Share
+   const weight = totalWeight(recipients);
+   if (weight === 0) return recipients.map((recipient) => ({ recipientId: recipient.id, cents: 0 }));
+ 
+-  return recipients.map((recipient) => ({
+-    recipientId: recipient.id,
+-    cents: Math.round((amountCents * recipient.weight) / weight),
++  const magnitude = Math.abs(amountCents);
++  const allocations = recipients.map((recipient, index) => {
++    const exact = (magnitude * recipient.weight) / weight;
++    const cents = Math.floor(exact);
++    return { recipientId: recipient.id, index, cents, remainder: exact - cents };
++  });
++  const remaining = magnitude - allocations.reduce((sum, allocation) => sum + allocation.cents, 0);
++  const ranked = allocations
++    .filter((allocation) => recipients[allocation.index].weight > 0)
++    .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
++  for (let i = 0; i < remaining; i++) ranked[i].cents++;
++
++  return allocations.map(({ recipientId, cents }) => ({
++    recipientId,
++    cents: cents === 0 ? 0 : cents * (amountCents < 0 ? -1 : 1),
+   }));
+ }
+diff --git a/test/split.test.ts b/test/split.test.ts
+index b182115..fe894f8 100644
+--- a/test/split.test.ts
++++ b/test/split.test.ts
+@@ -1,6 +1,7 @@
+ import { test } from "node:test";
+ import assert from "node:assert/strict";
+ import { splitPayout } from "../src/split.ts";
++import { reconcileShares } from "../src/reconciliation.ts";
+ import { summarizeSplit } from "../src/summary.ts";
+ 
+ const recipients = [
+@@ -15,6 +16,59 @@ test("splits an even proportional payout", () => {
+   ]);
+ });
+ 
++test("allocates remaining cents by descending remainder, breaking ties by input order", () => {
++  const equal = [
++    { id: "first", weight: 1 },
++    { id: "second", weight: 1 },
++    { id: "third", weight: 1 },
++  ];
++  assert.deepEqual(splitPayout(1, equal), [
++    { recipientId: "first", cents: 1 },
++    { recipientId: "second", cents: 0 },
++    { recipientId: "third", cents: 0 },
++  ]);
++  assert.deepEqual(splitPayout(2, equal), [
++    { recipientId: "first", cents: 1 },
++    { recipientId: "second", cents: 1 },
++    { recipientId: "third", cents: 0 },
++  ]);
++  assert.deepEqual(splitPayout(7, [
++    { id: "first", weight: 4 },
++    { id: "second", weight: 3 },
++    { id: "third", weight: 2 },
++  ]), [
++    { recipientId: "first", cents: 3 },
++    { recipientId: "second", cents: 2 },
++    { recipientId: "third", cents: 2 },
++  ]);
++});
++
++test("refunds negate the positive shares without changing remainder order", () => {
++  const weighted = [
++    { id: "first", weight: 3 },
++    { id: "zero", weight: 0 },
++    { id: "third", weight: 2 },
++  ];
++  const payout = splitPayout(3, weighted);
++  assert.deepEqual(payout, [
++    { recipientId: "first", cents: 2 },
++    { recipientId: "zero", cents: 0 },
++    { recipientId: "third", cents: 1 },
++  ]);
++  assert.deepEqual(splitPayout(-3, weighted), payout.map((share) => ({
++    ...share,
++    cents: share.cents === 0 ? 0 : -share.cents,
++  })));
++  assert.equal(reconcileShares(-3, splitPayout(-3, weighted)).balanced, true);
++  assert.deepEqual(splitPayout(-1, [
++    { id: "first", weight: 1 },
++    { id: "second", weight: 1 },
++  ]), [
++    { recipientId: "first", cents: -1 },
++    { recipientId: "second", cents: 0 },
++  ]);
++});
++
+ test("all zero weights receive zero", () => {
+   assert.deepEqual(splitPayout(999, [{ id: "none", weight: 0 }]), [{ recipientId: "none", cents: 0 }]);
+ });

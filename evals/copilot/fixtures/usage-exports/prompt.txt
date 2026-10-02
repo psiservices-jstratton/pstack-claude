@@ -1,0 +1,1 @@
+The three usage export paths all copied the same date filtering and daily rollup, and the copies have started to drift. Please consolidate that rollup into one shared helper used by CSV, JSON, and the billing feed. Do not change any output bytes or object shapes, because downstream jobs compare these exports exactly.

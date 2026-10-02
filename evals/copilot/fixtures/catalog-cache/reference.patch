@@ -1,0 +1,22 @@
+diff --git a/src/catalog-cache.ts b/src/catalog-cache.ts
+index 78a06a1..a3c4288 100644
+--- a/src/catalog-cache.ts
++++ b/src/catalog-cache.ts
+@@ -31,12 +31,13 @@ export class CatalogCache {
+     }
+ 
+     const promise = this.fetchItem(id);
++    this.entries.set(id, { expiresAt: this.now() + this.ttlMs, promise });
+     try {
+-      const item = await promise;
+-      this.entries.set(id, { expiresAt: this.now() + this.ttlMs, promise });
+-      return item;
++      return await promise;
+     } catch (error) {
+-      this.entries.set(id, { expiresAt: this.now() + this.ttlMs, promise });
++      if (this.entries.get(id)?.promise === promise) {
++        this.entries.delete(id);
++      }
+       throw error;
+     }
+   }

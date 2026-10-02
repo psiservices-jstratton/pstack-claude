@@ -1,0 +1,76 @@
+diff --git a/src/help.ts b/src/help.ts
+index 7b2996e..ae818f9 100644
+--- a/src/help.ts
++++ b/src/help.ts
+@@ -10,12 +10,61 @@ function flagLabel(flag: Flag): string {
+   return cyan(flag.name);
+ }
+ 
++// Greedily wraps `text` into lines no wider than `maxWidth`. A single word
++// longer than `maxWidth` is kept intact on its own line rather than split.
++function wrapText(text: string, maxWidth: number): string[] {
++  if (maxWidth <= 0) {
++    return [text];
++  }
++  const words = text.split(" ").filter((word) => word.length > 0);
++  if (!words.length) {
++    return [text];
++  }
++
++  const lines: string[] = [];
++  let current = "";
++  for (const word of words) {
++    if (!current) {
++      current = word;
++      continue;
++    }
++    if (current.length + 1 + word.length <= maxWidth) {
++      current += ` ${word}`;
++    } else {
++      lines.push(current);
++      current = word;
++    }
++  }
++  if (current) {
++    lines.push(current);
++  }
++  return lines;
++}
++
++function pushEntry(lines: string[], label: string, labelWidth: number, description: string, width: number | undefined): void {
++  const prefixWidth = 2 + labelWidth + 2;
++  const prefix = `  ${padVisible(label, labelWidth)}  `;
++  if (!width) {
++    lines.push(`${prefix}${description}`);
++    return;
++  }
++
++  const descWidth = width - prefixWidth;
++  const descLines = wrapText(description, descWidth);
++  lines.push(`${prefix}${descLines[0] ?? ""}`);
++  const continuationIndent = " ".repeat(prefixWidth);
++  for (const line of descLines.slice(1)) {
++    lines.push(`${continuationIndent}${line}`);
++  }
++}
++
+ export function formatHelp(commands: Command[] = defaultCommands, options: HelpOptions = {}): string {
+   const program = options.program ?? "notes";
++  const { width } = options;
+   const lines = [`Usage: ${program} <command> [options]`, "", "Commands:"];
+   const commandWidth = maxLength(commands.map((command) => command.name), 7);
+   for (const command of commands) {
+-    lines.push(`  ${padVisible(command.name, commandWidth)}  ${command.summary}`);
++    pushEntry(lines, command.name, commandWidth, command.summary, width);
+   }
+ 
+   const flags = commands.flatMap((command) => command.flags ?? []);
+@@ -23,7 +72,7 @@ export function formatHelp(commands: Command[] = defaultCommands, options: HelpO
+     lines.push("", "Flags:");
+     const flagWidth = maxLength(flags.map((flag) => flag.name), 6);
+     for (const flag of flags) {
+-      lines.push(`  ${padVisible(flagLabel(flag), flagWidth)}  ${flag.description}`);
++      pushEntry(lines, flagLabel(flag), flagWidth, flag.description, width);
+     }
+   }
+   return `${lines.join("\n")}\n`;

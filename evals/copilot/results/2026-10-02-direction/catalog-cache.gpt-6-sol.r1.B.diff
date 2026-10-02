@@ -1,0 +1,174 @@
+diff --git a/README.md b/README.md
+index 46f1335..19a643d 100644
+--- a/README.md
++++ b/README.md
+@@ -4,4 +4,6 @@ A small read-through cache for product catalog lookups. `CatalogCache` wraps an
+ 
+ Repeated reads for a fresh item should use the cached result. Once an entry expires, the next read should ask upstream again. Different item ids are independent, and `getMany` returns results in the same order as the input ids.
+ 
++Concurrent reads of the same id share one upstream lookup. A successful lookup stays cached for the configured TTL starting when the lookup completes. Failed lookups are not cached, so a later read retries upstream. `forget(id)` clears both completed and pending lookups without cancelling requests already in progress.
++
+ Run `npm test` with Node 24.
+diff --git a/src/catalog-cache.ts b/src/catalog-cache.ts
+index 78a06a1..7601883 100644
+--- a/src/catalog-cache.ts
++++ b/src/catalog-cache.ts
+@@ -16,6 +16,7 @@ export class CatalogCache {
+   private readonly fetchItem: FetchCatalogItem;
+   private readonly now: () => number;
+   private readonly entries = new Map<string, CacheEntry>();
++  private readonly inFlight = new Map<string, Promise<CatalogItem>>();
+ 
+   constructor(options: CatalogCacheOptions) {
+     if (options.ttlMs <= 0) throw new RangeError("ttlMs must be positive");
+@@ -30,15 +31,25 @@ export class CatalogCache {
+       return cached.promise;
+     }
+ 
++    const existing = this.inFlight.get(id);
++    if (existing) return existing;
++
+     const promise = this.fetchItem(id);
+-    try {
+-      const item = await promise;
+-      this.entries.set(id, { expiresAt: this.now() + this.ttlMs, promise });
+-      return item;
+-    } catch (error) {
+-      this.entries.set(id, { expiresAt: this.now() + this.ttlMs, promise });
+-      throw error;
+-    }
++    const pending = promise.then(
++      (item) => {
++        if (this.inFlight.get(id) === pending) {
++          this.entries.set(id, { expiresAt: this.now() + this.ttlMs, promise: pending });
++          this.inFlight.delete(id);
++        }
++        return item;
++      },
++      (error) => {
++        if (this.inFlight.get(id) === pending) this.inFlight.delete(id);
++        throw error;
++      },
++    );
++    this.inFlight.set(id, pending);
++    return pending;
+   }
+ 
+   async getMany(ids: string[]): Promise<CatalogItem[]> {
+@@ -46,6 +57,7 @@ export class CatalogCache {
+   }
+ 
+   forget(id: string): boolean {
++    this.inFlight.delete(id);
+     return this.entries.delete(id);
+   }
+ 
+diff --git a/test/catalog-cache.test.ts b/test/catalog-cache.test.ts
+index 92421b7..d92c8cb 100644
+--- a/test/catalog-cache.test.ts
++++ b/test/catalog-cache.test.ts
+@@ -47,3 +47,104 @@ test("getMany keeps input order and ids separate", async () => {
+   assert.deepEqual(results.map((r) => r.id), ["pin", "mug", "pin"]);
+   assert.equal(cache.size, 2);
+ });
++
++test("concurrent reads share a pending lookup for the same id", async () => {
++  let calls = 0;
++  let complete!: (value: CatalogItem) => void;
++  const upstream = new Promise<CatalogItem>((resolve) => {
++    complete = resolve;
++  });
++  const cache = new CatalogCache({
++    ttlMs: 1000,
++    fetchItem: async () => {
++      calls++;
++      return upstream;
++    },
++  });
++
++  const reads = [cache.getItem("mug"), cache.getItem("mug"), cache.getMany(["mug", "mug"])];
++  assert.equal(calls, 1);
++  complete(item("mug"));
++  const [first, second, batch] = await Promise.all(reads);
++  assert.deepEqual([first.id, second.id, ...batch.map((entry) => entry.id)], ["mug", "mug", "mug", "mug"]);
++  assert.equal(calls, 1);
++});
++
++test("a failed lookup can retry and cache a later success", async () => {
++  let calls = 0;
++  let fail!: (error: Error) => void;
++  const cache = new CatalogCache({
++    ttlMs: 1000,
++    fetchItem: (id) => {
++      calls++;
++      if (calls > 1) return Promise.resolve(item(id));
++      return new Promise<CatalogItem>((_, reject) => {
++        fail = reject;
++      });
++    },
++  });
++
++  const first = cache.getItem("mug");
++  const second = cache.getItem("mug");
++  assert.equal(calls, 1);
++  fail(new Error("upstream unavailable"));
++  await assert.rejects(first, /upstream unavailable/);
++  await assert.rejects(second, /upstream unavailable/);
++  assert.equal((await cache.getItem("mug")).id, "mug");
++  assert.equal((await cache.getItem("mug")).id, "mug");
++  assert.equal(calls, 2);
++});
++
++test("TTL begins when a shared lookup completes", async () => {
++  let now = 10;
++  let calls = 0;
++  let complete!: (value: CatalogItem) => void;
++  const cache = new CatalogCache({
++    ttlMs: 5,
++    now: () => now,
++    fetchItem: (id) => {
++      calls++;
++      if (calls > 1) return Promise.resolve(item(id, "refreshed"));
++      return new Promise<CatalogItem>((resolve) => {
++        complete = resolve;
++      });
++    },
++  });
++
++  const first = cache.getItem("mug");
++  now = 20;
++  const second = cache.getItem("mug");
++  assert.equal(calls, 1);
++  complete(item("mug", "original"));
++  assert.equal((await first).title, "original");
++  assert.equal((await second).title, "original");
++  now = 24;
++  assert.equal((await cache.getItem("mug")).title, "original");
++  now = 25;
++  assert.equal((await cache.getItem("mug")).title, "refreshed");
++  assert.equal(calls, 2);
++});
++
++test("forget prevents an old in-flight lookup from repopulating the cache", async () => {
++  let calls = 0;
++  let complete!: (value: CatalogItem) => void;
++  const cache = new CatalogCache({
++    ttlMs: 1000,
++    fetchItem: (id) => {
++      calls++;
++      if (calls > 1) return Promise.resolve(item(id, "new"));
++      return new Promise<CatalogItem>((resolve) => {
++        complete = resolve;
++      });
++    },
++  });
++
++  const old = cache.getItem("mug");
++  assert.equal(cache.size, 0);
++  assert.equal(cache.forget("mug"), false);
++  assert.equal((await cache.getItem("mug")).title, "new");
++  complete(item("mug", "old"));
++  assert.equal((await old).title, "old");
++  assert.equal((await cache.getItem("mug")).title, "new");
++  assert.equal(calls, 2);
++});

@@ -1,0 +1,33 @@
+diff --git a/src/dedupe.ts b/src/dedupe.ts
+index efa7bf0..fadf3d6 100644
+--- a/src/dedupe.ts
++++ b/src/dedupe.ts
+@@ -9,17 +9,22 @@ export type Contact = {
+ 
+ // A contact is a duplicate when its email or its phone matches a contact we
+ // already kept. The first occurrence wins. Blank fields never match.
++//
++// Kept emails/phones are indexed in sets so each contact is checked in O(1)
++// instead of scanning every previously kept contact.
+ export function dedupeContacts(contacts: Contact[]): Contact[] {
+   const kept: Contact[] = [];
++  const keptEmails = new Set<string>();
++  const keptPhones = new Set<string>();
+   for (const contact of contacts) {
+     const email = normalizeEmail(contact.email);
+     const phone = normalizePhone(contact.phone);
+-    const duplicate = kept.some((other) => {
+-      const sameEmail = email !== "" && normalizeEmail(other.email) === email;
+-      const samePhone = phone !== "" && normalizePhone(other.phone) === phone;
+-      return sameEmail || samePhone;
+-    });
+-    if (!duplicate) kept.push(contact);
++    const duplicate = (email !== "" && keptEmails.has(email)) || (phone !== "" && keptPhones.has(phone));
++    if (!duplicate) {
++      kept.push(contact);
++      if (email !== "") keptEmails.add(email);
++      if (phone !== "") keptPhones.add(phone);
++    }
+   }
+   return kept;
+ }

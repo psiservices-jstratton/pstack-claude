@@ -1,0 +1,17 @@
+diff --git a/src/promotions.ts b/src/promotions.ts
+index fcfdb4a..b637643 100644
+--- a/src/promotions.ts
++++ b/src/promotions.ts
+@@ -20,7 +20,9 @@ export function findPromo(code: string | undefined, today: string): Promo | unde
+ 
+ export function withPromo(rule: DiscountRule, promo: Promo | undefined): DiscountRule {
+   if (!promo) return rule;
+-  rule.percent += promo.extraPercent;
+-  rule.label = `${rule.label} + ${promo.code}`;
+-  return rule;
++  return {
++    ...rule,
++    percent: rule.percent + promo.extraPercent,
++    label: `${rule.label} + ${promo.code}`,
++  };
+ }

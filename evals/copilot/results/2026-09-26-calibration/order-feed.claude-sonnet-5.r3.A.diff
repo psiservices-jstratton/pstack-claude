@@ -1,0 +1,102 @@
+diff --git a/src/cursor.ts b/src/cursor.ts
+index 453f4a0..23cc9e4 100644
+--- a/src/cursor.ts
++++ b/src/cursor.ts
+@@ -1,4 +1,4 @@
+-export type Cursor = { createdAt: string };
++export type Cursor = { createdAt: string; id: string };
+ 
+ export function encodeCursor(cursor: Cursor): string {
+   return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
+@@ -8,7 +8,9 @@ export function decodeCursor(token: string | undefined): Cursor | undefined {
+   if (!token) return undefined;
+   try {
+     const parsed = JSON.parse(Buffer.from(token, "base64url").toString("utf8")) as Partial<Cursor>;
+-    return typeof parsed.createdAt === "string" ? { createdAt: parsed.createdAt } : undefined;
++    return typeof parsed.createdAt === "string" && typeof parsed.id === "string"
++      ? { createdAt: parsed.createdAt, id: parsed.id }
++      : undefined;
+   } catch {
+     return undefined;
+   }
+diff --git a/src/feed.ts b/src/feed.ts
+index 2bd7e4f..930083b 100644
+--- a/src/feed.ts
++++ b/src/feed.ts
+@@ -1,9 +1,14 @@
+ import { decodeCursor, encodeCursor } from "./cursor.ts";
++import type { Cursor } from "./cursor.ts";
+ import type { Direction, FeedOptions, Order, OrderPage } from "./types.ts";
+ 
+ function compareByCreatedAt(direction: Direction): (a: Order, b: Order) => number {
+   const multiplier = direction === "asc" ? 1 : -1;
+-  return (a, b) => multiplier * a.createdAt.localeCompare(b.createdAt);
++  return (a, b) => {
++    const createdAtCompare = a.createdAt.localeCompare(b.createdAt);
++    if (createdAtCompare !== 0) return multiplier * createdAtCompare;
++    return multiplier * a.id.localeCompare(b.id);
++  };
+ }
+ 
+ function sortedOrders(orders: Order[], options: FeedOptions): Order[] {
+@@ -13,9 +18,16 @@ function sortedOrders(orders: Order[], options: FeedOptions): Order[] {
+     .toSorted(compareByCreatedAt(direction));
+ }
+ 
+-function startAfterCursor(sorted: Order[], cursor: ReturnType<typeof decodeCursor>, direction: Direction): number {
++function isAfterCursor(order: Order, cursor: Cursor, direction: Direction): boolean {
++  const createdAtCompare = order.createdAt.localeCompare(cursor.createdAt);
++  if (createdAtCompare !== 0) return direction === "asc" ? createdAtCompare > 0 : createdAtCompare < 0;
++  const idCompare = order.id.localeCompare(cursor.id);
++  return direction === "asc" ? idCompare > 0 : idCompare < 0;
++}
++
++function startAfterCursor(sorted: Order[], cursor: Cursor | undefined, direction: Direction): number {
+   if (!cursor) return 0;
+-  const index = sorted.findIndex((order) => direction === "asc" ? order.createdAt > cursor.createdAt : order.createdAt < cursor.createdAt);
++  const index = sorted.findIndex((order) => isAfterCursor(order, cursor, direction));
+   return index === -1 ? sorted.length : index;
+ }
+ 
+@@ -28,7 +40,7 @@ export function listOrders(orders: Order[], options: FeedOptions): OrderPage {
+   const last = page.at(-1);
+   return {
+     orders: page,
+-    nextCursor: last && sorted.length > start + page.length ? encodeCursor({ createdAt: last.createdAt }) : undefined,
++    nextCursor: last && sorted.length > start + page.length ? encodeCursor({ createdAt: last.createdAt, id: last.id }) : undefined,
+   };
+ }
+ 
+diff --git a/test/feed.test.ts b/test/feed.test.ts
+index cd62b35..a7498de 100644
+--- a/test/feed.test.ts
++++ b/test/feed.test.ts
+@@ -29,3 +29,28 @@ test("supports descending order", () => {
+ test("can filter by status", () => {
+   assert.deepEqual(collectAllOrders(orders, { limit: 1, status: "paid" }).map((order) => order.id), ["ord-1", "ord-3"]);
+ });
++
++test("does not skip or repeat orders sharing a timestamp across a page boundary", () => {
++  const flashSale: Order[] = [
++    { id: "ord-a", createdAt: "2026-04-01T10:00:00.000Z", totalCents: 100, status: "paid" },
++    { id: "ord-b", createdAt: "2026-04-01T10:00:00.000Z", totalCents: 200, status: "paid" },
++    { id: "ord-c", createdAt: "2026-04-01T10:00:00.000Z", totalCents: 300, status: "paid" },
++    { id: "ord-d", createdAt: "2026-04-01T10:00:00.000Z", totalCents: 400, status: "paid" },
++  ];
++  assert.deepEqual(
++    collectAllOrders(flashSale, { limit: 2 }).map((order) => order.id),
++    ["ord-a", "ord-b", "ord-c", "ord-d"],
++  );
++});
++
++test("tie-break also respects descending direction", () => {
++  const flashSale: Order[] = [
++    { id: "ord-a", createdAt: "2026-04-01T10:00:00.000Z", totalCents: 100, status: "paid" },
++    { id: "ord-b", createdAt: "2026-04-01T10:00:00.000Z", totalCents: 200, status: "paid" },
++    { id: "ord-c", createdAt: "2026-04-01T10:00:00.000Z", totalCents: 300, status: "paid" },
++  ];
++  assert.deepEqual(
++    collectAllOrders(flashSale, { limit: 2, direction: "desc" }).map((order) => order.id),
++    ["ord-c", "ord-b", "ord-a"],
++  );
++});

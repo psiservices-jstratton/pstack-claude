@@ -1,0 +1,100 @@
+diff --git a/src/split.ts b/src/split.ts
+index d278c95..26f7f21 100644
+--- a/src/split.ts
++++ b/src/split.ts
+@@ -6,8 +6,25 @@ export function splitPayout(amountCents: number, recipients: Recipient[]): Share
+   const weight = totalWeight(recipients);
+   if (weight === 0) return recipients.map((recipient) => ({ recipientId: recipient.id, cents: 0 }));
+ 
+-  return recipients.map((recipient) => ({
++  const magnitude = Math.abs(amountCents);
++  const allocations = recipients.map((recipient, index) => {
++    const proportion = (magnitude * recipient.weight) / weight;
++    const cents = Math.floor(proportion);
++    return { index, cents, remainder: proportion - cents };
++  });
++  const leftover = magnitude - allocations.reduce((sum, allocation) => sum + allocation.cents, 0);
++  const ranked = allocations.filter(({ index }) => recipients[index].weight > 0)
++    .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
++  if (leftover >= 0) {
++    for (let i = 0; i < leftover; i++) ranked[i % ranked.length].cents++;
++  } else {
++    const rankedForRemoval = ranked.filter(({ cents }) => cents > 0).reverse();
++    for (let i = 0; i < -leftover; i++) rankedForRemoval[i % rankedForRemoval.length].cents--;
++  }
++
++  const sign = amountCents < 0 ? -1 : 1;
++  return recipients.map((recipient, index) => ({
+     recipientId: recipient.id,
+-    cents: Math.round((amountCents * recipient.weight) / weight),
++    cents: allocations[index].cents === 0 ? 0 : sign * allocations[index].cents,
+   }));
+ }
+diff --git a/test/split.test.ts b/test/split.test.ts
+index b182115..464677a 100644
+--- a/test/split.test.ts
++++ b/test/split.test.ts
+@@ -19,6 +19,63 @@ test("all zero weights receive zero", () => {
+   assert.deepEqual(splitPayout(999, [{ id: "none", weight: 0 }]), [{ recipientId: "none", cents: 0 }]);
+ });
+ 
++test("allocates every cent by largest remainder with stable ties", () => {
++  const equal = [
++    { id: "first", weight: 1 },
++    { id: "second", weight: 1 },
++    { id: "third", weight: 1 },
++  ];
++  assert.deepEqual(splitPayout(101, equal), [
++    { recipientId: "first", cents: 34 },
++    { recipientId: "second", cents: 34 },
++    { recipientId: "third", cents: 33 },
++  ]);
++  assert.deepEqual(splitPayout(2, equal), [
++    { recipientId: "first", cents: 1 },
++    { recipientId: "second", cents: 1 },
++    { recipientId: "third", cents: 0 },
++  ]);
++  assert.deepEqual(splitPayout(7, [
++    { id: "first", weight: 1 },
++    { id: "second", weight: 2 },
++    { id: "third", weight: 3 },
++  ]), [
++    { recipientId: "first", cents: 1 },
++    { recipientId: "second", cents: 2 },
++    { recipientId: "third", cents: 4 },
++  ]);
++});
++
++test("refund shares exactly negate their corresponding payout shares", () => {
++  const equal = [
++    { id: "first", weight: 1 },
++    { id: "second", weight: 1 },
++  ];
++  for (const amount of [1, 101]) {
++    assert.deepEqual(splitPayout(-amount, equal), splitPayout(amount, equal).map(
++      ({ recipientId, cents }) => ({ recipientId, cents: cents === 0 ? 0 : -cents }),
++    ));
++  }
++});
++
++test("preserves the total for large integer-cent amounts with fractional weights", () => {
++  const amount = Number.MAX_SAFE_INTEGER;
++  const weighted = [{ id: "first", weight: 0.2 }, { id: "second", weight: 0.5 }];
++  const shares = splitPayout(amount, weighted);
++  assert.equal(shares.reduce((sum, share) => sum + share.cents, 0), amount);
++  assert.deepEqual(splitPayout(-amount, weighted), shares.map(
++    ({ recipientId, cents }) => ({ recipientId, cents: cents === 0 ? 0 : -cents }),
++  ));
++});
++
++test("zero-weight recipients receive positive zero on refunds", () => {
++  assert.deepEqual(splitPayout(-1, [
++    { id: "zero", weight: 0 }, { id: "nonzero", weight: 1 },
++  ]), [
++    { recipientId: "zero", cents: 0 }, { recipientId: "nonzero", cents: -1 },
++  ]);
++});
++
+ test("rejects negative weights", () => {
+   assert.throws(() => splitPayout(100, [{ id: "bad", weight: -1 }]), RangeError);
+ });

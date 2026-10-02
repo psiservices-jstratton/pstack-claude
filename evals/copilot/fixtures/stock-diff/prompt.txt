@@ -1,0 +1,1 @@
+The nightly inventory compare works on small stores but takes far too long for warehouse snapshots. Please make `diffInventory` fast without changing the report: duplicate rows for the same SKU and location are summed, SKUs match case-insensitively after trimming, and changes remain grouped as added, then changed, then removed with the existing sort order.

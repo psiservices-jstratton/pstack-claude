@@ -1,0 +1,36 @@
+diff --git a/src/split.ts b/src/split.ts
+index d278c95..600ec9c 100644
+--- a/src/split.ts
++++ b/src/split.ts
+@@ -6,8 +6,27 @@ export function splitPayout(amountCents: number, recipients: Recipient[]): Share
+   const weight = totalWeight(recipients);
+   if (weight === 0) return recipients.map((recipient) => ({ recipientId: recipient.id, cents: 0 }));
+ 
+-  return recipients.map((recipient) => ({
+-    recipientId: recipient.id,
+-    cents: Math.round((amountCents * recipient.weight) / weight),
+-  }));
++  // A clawback (negative amount) is the exact negation of the same positive payout's split.
++  if (amountCents < 0) {
++    return splitPayout(-amountCents, recipients).map((share) => ({ ...share, cents: -share.cents }));
++  }
++
++  // Largest remainder method: allocate the integer floor to everyone first, then
++  // hand out the leftover cents one at a time to the largest fractional remainders,
++  // breaking ties in favor of earlier recipients so the result is deterministic.
++  const exact = recipients.map((recipient) => (amountCents * recipient.weight) / weight);
++  const base = exact.map(Math.floor);
++  let remainder = amountCents - base.reduce((sum, cents) => sum + cents, 0);
++
++  const order = recipients
++    .map((_, index) => index)
++    .toSorted((a, b) => exact[b] - base[b] - (exact[a] - base[a]) || a - b);
++
++  for (const index of order) {
++    if (remainder <= 0) break;
++    base[index] += 1;
++    remainder -= 1;
++  }
++
++  return recipients.map((recipient, index) => ({ recipientId: recipient.id, cents: base[index] }));
+ }

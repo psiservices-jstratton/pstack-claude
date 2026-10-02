@@ -1,0 +1,139 @@
+diff --git a/src/planner.ts b/src/planner.ts
+index 57a107c..ec5743c 100644
+--- a/src/planner.ts
++++ b/src/planner.ts
+@@ -1,4 +1,4 @@
+-import { allDepots, outgoingRoads, type Road, type Route } from "./graph.ts";
++import { type Road, type Route } from "./graph.ts";
+ 
+ type BestRoute = {
+   cost: number;
+@@ -6,6 +6,11 @@ type BestRoute = {
+   depots: string[];
+ };
+ 
++type QueueEntry = BestRoute & {
++  depot: string;
++  key: string;
++};
++
+ function sequenceKey(depots: readonly string[]): string {
+   return depots.join("\u0000");
+ }
+@@ -16,37 +21,95 @@ function compareRoute(a: BestRoute, b: BestRoute): number {
+   return sequenceKey(a.depots).localeCompare(sequenceKey(b.depots));
+ }
+ 
++function compareEntry(a: QueueEntry, b: QueueEntry): number {
++  if (a.cost !== b.cost) return a.cost - b.cost;
++  if (a.hops !== b.hops) return a.hops - b.hops;
++  return a.key.localeCompare(b.key);
++}
++
++class RouteQueue {
++  #items: QueueEntry[] = [];
++
++  get size(): number {
++    return this.#items.length;
++  }
++
++  push(entry: QueueEntry): void {
++    this.#items.push(entry);
++    this.#bubbleUp(this.#items.length - 1);
++  }
++
++  pop(): QueueEntry | undefined {
++    const first = this.#items[0];
++    const last = this.#items.pop();
++    if (last && this.#items.length > 0) {
++      this.#items[0] = last;
++      this.#bubbleDown(0);
++    }
++    return first;
++  }
++
++  #bubbleUp(index: number): void {
++    while (index > 0) {
++      const parent = Math.floor((index - 1) / 2);
++      if (compareEntry(this.#items[parent], this.#items[index]) <= 0) break;
++      [this.#items[parent], this.#items[index]] = [this.#items[index], this.#items[parent]];
++      index = parent;
++    }
++  }
++
++  #bubbleDown(index: number): void {
++    while (true) {
++      const left = index * 2 + 1;
++      const right = left + 1;
++      let smallest = index;
++      if (left < this.#items.length && compareEntry(this.#items[left], this.#items[smallest]) < 0) smallest = left;
++      if (right < this.#items.length && compareEntry(this.#items[right], this.#items[smallest]) < 0) smallest = right;
++      if (smallest === index) break;
++      [this.#items[index], this.#items[smallest]] = [this.#items[smallest], this.#items[index]];
++      index = smallest;
++    }
++  }
++}
++
++function buildOutgoing(roads: readonly Road[]): Map<string, Road[]> {
++  const outgoing = new Map<string, Road[]>();
++  for (const road of roads) {
++    if (road.cost < 0) throw new RangeError("Road costs must be non-negative");
++    const list = outgoing.get(road.from);
++    if (list) list.push(road);
++    else outgoing.set(road.from, [road]);
++  }
++  for (const list of outgoing.values()) list.sort((a, b) => a.to.localeCompare(b.to));
++  return outgoing;
++}
++
+ export function cheapestRoute(roads: readonly Road[], start: string, goal: string): Route | null {
+-  const unvisited = new Set(allDepots(roads, start, goal));
++  const outgoing = buildOutgoing(roads);
+   const best = new Map<string, BestRoute>();
+-  best.set(start, { cost: 0, hops: 0, depots: [start] });
+-
+-  while (unvisited.size > 0) {
+-    let current: string | undefined;
+-    let currentBest: BestRoute | undefined;
+-    for (const depot of unvisited) {
+-      const route = best.get(depot);
+-      if (!route) continue;
+-      if (!currentBest || compareRoute(route, currentBest) < 0) {
+-        current = depot;
+-        currentBest = route;
+-      }
+-    }
++  const queue = new RouteQueue();
++  const initial = { cost: 0, hops: 0, depots: [start] };
++  best.set(start, initial);
++  queue.push({ ...initial, depot: start, key: sequenceKey(initial.depots) });
+ 
+-    if (!current || !currentBest) return null;
+-    if (current === goal) return { depots: currentBest.depots, cost: currentBest.cost };
+-    unvisited.delete(current);
++  while (queue.size > 0) {
++    const current = queue.pop();
++    if (!current) break;
++    const currentBest = best.get(current.depot);
++    if (!currentBest || compareRoute(current, currentBest) !== 0) continue;
++    if (current.depot === goal) return { depots: currentBest.depots, cost: currentBest.cost };
+ 
+-    for (const road of outgoingRoads(roads, current)) {
+-      if (road.cost < 0) throw new RangeError("Road costs must be non-negative");
+-      if (!unvisited.has(road.to)) continue;
++    for (const road of outgoing.get(current.depot) ?? []) {
+       const next: BestRoute = {
+         cost: currentBest.cost + road.cost,
+         hops: currentBest.hops + 1,
+         depots: [...currentBest.depots, road.to],
+       };
+       const previous = best.get(road.to);
+-      if (!previous || compareRoute(next, previous) < 0) best.set(road.to, next);
++      if (!previous || compareRoute(next, previous) < 0) {
++        best.set(road.to, next);
++        queue.push({ ...next, depot: road.to, key: sequenceKey(next.depots) });
++      }
+     }
+   }
+ 

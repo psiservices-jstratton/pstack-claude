@@ -1,0 +1,9 @@
+{
+  "name": "contacts-import",
+  "version": "1.4.3",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}

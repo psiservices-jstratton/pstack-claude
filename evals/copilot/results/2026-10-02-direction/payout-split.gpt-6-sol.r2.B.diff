@@ -1,0 +1,116 @@
+diff --git a/src/split.ts b/src/split.ts
+index d278c95..a3db46b 100644
+--- a/src/split.ts
++++ b/src/split.ts
+@@ -6,8 +6,23 @@ export function splitPayout(amountCents: number, recipients: Recipient[]): Share
+   const weight = totalWeight(recipients);
+   if (weight === 0) return recipients.map((recipient) => ({ recipientId: recipient.id, cents: 0 }));
+ 
+-  return recipients.map((recipient) => ({
++  const magnitude = Math.abs(amountCents);
++  const quotas = recipients.map((recipient) => magnitude * (recipient.weight / weight));
++  const shares = recipients.map((recipient, index) => ({
+     recipientId: recipient.id,
+-    cents: Math.round((amountCents * recipient.weight) / weight),
++    cents: Math.floor(quotas[index]),
+   }));
++  const remaining = magnitude - shares.reduce((sum, share) => sum + share.cents, 0);
++  const order = quotas
++    .map((quota, index) => ({ index, remainder: quota - Math.floor(quota) }))
++    .filter(({ index }) => recipients[index].weight > 0 && (remaining >= 0 || shares[index].cents > 0))
++    .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
++  const ranked = remaining < 0 ? order.toReversed() : order;
++  for (let index = 0; index < Math.abs(remaining); index++) {
++    shares[ranked[index % ranked.length].index].cents += Math.sign(remaining);
++  }
++
++  return amountCents < 0
++    ? shares.map((share) => ({ ...share, cents: share.cents === 0 ? 0 : -share.cents }))
++    : shares;
+ }
+diff --git a/test/split.test.ts b/test/split.test.ts
+index b182115..34660fe 100644
+--- a/test/split.test.ts
++++ b/test/split.test.ts
+@@ -2,6 +2,7 @@ import { test } from "node:test";
+ import assert from "node:assert/strict";
+ import { splitPayout } from "../src/split.ts";
+ import { summarizeSplit } from "../src/summary.ts";
++import { reconcileShares } from "../src/reconciliation.ts";
+ 
+ const recipients = [
+   { id: "artist", weight: 3 },
+@@ -19,6 +20,73 @@ test("all zero weights receive zero", () => {
+   assert.deepEqual(splitPayout(999, [{ id: "none", weight: 0 }]), [{ recipientId: "none", cents: 0 }]);
+ });
+ 
++test("allocates leftover cents by fractional remainder and input order", () => {
++  const equal = [
++    { id: "first", weight: 1 },
++    { id: "second", weight: 1 },
++    { id: "third", weight: 1 },
++  ];
++  const shares = splitPayout(101, equal);
++  assert.deepEqual(shares, [
++    { recipientId: "first", cents: 34 },
++    { recipientId: "second", cents: 34 },
++    { recipientId: "third", cents: 33 },
++  ]);
++  assert.deepEqual(reconcileShares(101, shares), {
++    expectedCents: 101,
++    actualCents: 101,
++    balanced: true,
++    differenceCents: 0,
++  });
++
++  assert.deepEqual(splitPayout(7, [
++    { id: "small", weight: 1 },
++    { id: "large", weight: 3 },
++    { id: "zero", weight: 0 },
++    { id: "middle", weight: 2 },
++  ]), [
++    { recipientId: "small", cents: 1 },
++    { recipientId: "large", cents: 4 },
++    { recipientId: "zero", cents: 0 },
++    { recipientId: "middle", cents: 2 },
++  ]);
++});
++
++test("refunds negate the same positive split without negative zero", () => {
++  const refundRecipients = [
++    { id: "first", weight: 1 },
++    { id: "second", weight: 1 },
++    { id: "third", weight: 1 },
++    { id: "zero", weight: 0 },
++  ];
++  const payout = splitPayout(101, refundRecipients);
++  const refund = splitPayout(-101, refundRecipients);
++  assert.deepEqual(refund, [
++    { recipientId: "first", cents: -34 },
++    { recipientId: "second", cents: -34 },
++    { recipientId: "third", cents: -33 },
++    { recipientId: "zero", cents: 0 },
++  ]);
++  assert.deepEqual(refund, payout.map(({ recipientId, cents }) => ({
++    recipientId,
++    cents: cents === 0 ? 0 : -cents,
++  })));
++  assert.equal(reconcileShares(-101, refund).balanced, true);
++});
++
++test("large integer-cent amounts still reconcile after floating-point quota rounding", () => {
++  const amount = 7735929064128511;
++  const largeRecipients = [
++    { id: "first", weight: 836.1964190844446 },
++    { id: "second", weight: 432.5238943565637 },
++  ];
++  for (const signedAmount of [amount, -amount]) {
++    const shares = splitPayout(signedAmount, largeRecipients);
++    assert.equal(reconcileShares(signedAmount, shares).differenceCents, 0);
++    assert.ok(shares.every((share) => Number.isSafeInteger(share.cents)));
++  }
++});
++
+ test("rejects negative weights", () => {
+   assert.throws(() => splitPayout(100, [{ id: "bad", weight: -1 }]), RangeError);
+ });

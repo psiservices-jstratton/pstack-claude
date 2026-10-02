@@ -1,0 +1,40 @@
+diff --git a/src/split.ts b/src/split.ts
+index d278c95..b9d00ed 100644
+--- a/src/split.ts
++++ b/src/split.ts
+@@ -6,8 +6,31 @@ export function splitPayout(amountCents: number, recipients: Recipient[]): Share
+   const weight = totalWeight(recipients);
+   if (weight === 0) return recipients.map((recipient) => ({ recipientId: recipient.id, cents: 0 }));
+ 
+-  return recipients.map((recipient) => ({
+-    recipientId: recipient.id,
+-    cents: Math.round((amountCents * recipient.weight) / weight),
+-  }));
++  // Refunds/clawbacks split as the exact negation of the same positive payout.
++  const sign = amountCents < 0 ? -1 : 1;
++  const absoluteAmount = Math.abs(amountCents);
++
++  const allocations = recipients.map((recipient, index) => {
++    const exact = (absoluteAmount * recipient.weight) / weight;
++    const base = Math.floor(exact);
++    return { index, recipient, base, remainder: exact - base };
++  });
++
++  const allocatedTotal = allocations.reduce((sum, allocation) => sum + allocation.base, 0);
++  let leftoverCents = absoluteAmount - allocatedTotal;
++
++  // Assign leftover cents to the largest fractional remainders; exact ties favor earlier recipients.
++  const byRemainder = allocations
++    .slice()
++    .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
++
++  for (const allocation of byRemainder) {
++    if (leftoverCents <= 0) break;
++    allocation.base += 1;
++    leftoverCents -= 1;
++  }
++
++  return allocations
++    .sort((a, b) => a.index - b.index)
++    .map((allocation) => ({ recipientId: allocation.recipient.id, cents: sign * allocation.base }));
+ }

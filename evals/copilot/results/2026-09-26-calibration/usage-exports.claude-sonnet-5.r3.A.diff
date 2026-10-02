@@ -1,0 +1,176 @@
+diff --git a/src/billingFeed.ts b/src/billingFeed.ts
+index c3e90fb..15d961c 100644
+--- a/src/billingFeed.ts
++++ b/src/billingFeed.ts
+@@ -1,24 +1,15 @@
+ import type { Account, DateRange, UsageEvent } from "./types.ts";
+-
+-function utcDay(iso: string): string {
+-  return new Date(iso).toISOString().slice(0, 10);
+-}
++import { rollupDailyUsage, utcDay } from "./rollup.ts";
+ 
+ export function exportBillingFeed(account: Account, events: UsageEvent[], range: DateRange): string {
+-  const start = new Date(range.start).getTime();
+-  const end = new Date(range.end).getTime();
+-  const buckets = new Map<string, number>();
+-
+-  for (const event of events) {
+-    if (event.accountId !== account.id || !event.billable) continue;
+-    const at = new Date(event.occurredAt).getTime();
+-    if (at < start || at > end) continue;
+-    const day = utcDay(event.occurredAt);
+-    buckets.set(day, (buckets.get(day) ?? 0) + event.units);
+-  }
++  const buckets = rollupDailyUsage(account, events, range, {
++    dayKey: (event) => utcDay(event.occurredAt),
++    endInclusive: true,
++    requireBillable: true,
++  });
+ 
+   return [...buckets.entries()]
+     .sort(([a], [b]) => a.localeCompare(b))
+-    .map(([day, units]) => `${account.id}|${day}|${units}`)
++    .map(([day, bucket]) => `${account.id}|${day}|${bucket.totalUnits}`)
+     .join("\n");
+ }
+diff --git a/src/csv.ts b/src/csv.ts
+index 92eff16..c4fc0a5 100644
+--- a/src/csv.ts
++++ b/src/csv.ts
+@@ -1,28 +1,15 @@
+ import type { Account, DateRange, UsageEvent } from "./types.ts";
+-
+-function localDay(iso: string, offsetMinutes: number): string {
+-  const shifted = new Date(new Date(iso).getTime() + offsetMinutes * 60_000);
+-  return shifted.toISOString().slice(0, 10);
+-}
++import { localDay, rollupDailyUsage } from "./rollup.ts";
+ 
+ export function exportUsageCsv(account: Account, events: UsageEvent[], range: DateRange): string {
+-  const start = new Date(range.start).getTime();
+-  const end = new Date(range.end).getTime();
+-  const buckets = new Map<string, Map<string, number>>();
+-
+-  for (const event of events) {
+-    if (event.accountId !== account.id) continue;
+-    const at = new Date(event.occurredAt).getTime();
+-    if (at < start || at > end) continue;
+-    const day = localDay(event.occurredAt, account.timezoneOffsetMinutes);
+-    const products = buckets.get(day) ?? new Map<string, number>();
+-    products.set(event.product, (products.get(event.product) ?? 0) + event.units);
+-    buckets.set(day, products);
+-  }
++  const buckets = rollupDailyUsage(account, events, range, {
++    dayKey: (event, acct) => localDay(event.occurredAt, acct.timezoneOffsetMinutes),
++    endInclusive: true,
++  });
+ 
+   const rows = ["day,product,units"];
+   for (const day of [...buckets.keys()].sort()) {
+-    const products = buckets.get(day)!;
++    const products = buckets.get(day)!.productUnits;
+     for (const product of [...products.keys()].sort()) {
+       rows.push(`${day},${product},${products.get(product)}`);
+     }
+diff --git a/src/json.ts b/src/json.ts
+index 60df524..0fb9ddd 100644
+--- a/src/json.ts
++++ b/src/json.ts
+@@ -1,25 +1,11 @@
+ import type { Account, DateRange, UsageEvent } from "./types.ts";
+-
+-function localDay(iso: string, offsetMinutes: number): string {
+-  const shifted = new Date(new Date(iso).getTime() + offsetMinutes * 60_000);
+-  return shifted.toISOString().slice(0, 10);
+-}
++import { localDay, rollupDailyUsage } from "./rollup.ts";
+ 
+ export function exportUsageJson(account: Account, events: UsageEvent[], range: DateRange) {
+-  const start = new Date(range.start).getTime();
+-  const end = new Date(range.end).getTime();
+-  const buckets = new Map<string, { totalUnits: number; eventIds: string[] }>();
+-
+-  for (const event of events) {
+-    if (event.accountId !== account.id) continue;
+-    const at = new Date(event.occurredAt).getTime();
+-    if (at < start || at >= end) continue;
+-    const day = localDay(event.occurredAt, account.timezoneOffsetMinutes);
+-    const bucket = buckets.get(day) ?? { totalUnits: 0, eventIds: [] };
+-    bucket.totalUnits += event.units;
+-    bucket.eventIds.push(event.id);
+-    buckets.set(day, bucket);
+-  }
++  const buckets = rollupDailyUsage(account, events, range, {
++    dayKey: (event, acct) => localDay(event.occurredAt, acct.timezoneOffsetMinutes),
++    endInclusive: false,
++  });
+ 
+   return {
+     accountId: account.id,
+diff --git a/src/rollup.ts b/src/rollup.ts
+new file mode 100644
+index 0000000..a4ce380
+--- /dev/null
++++ b/src/rollup.ts
+@@ -0,0 +1,60 @@
++import type { Account, DateRange, UsageEvent } from "./types.ts";
++
++/** Per-day totals for a single account, keyed by day string (ascending order not guaranteed). */
++export type DayBucket = {
++  totalUnits: number;
++  eventIds: string[];
++  productUnits: Map<string, number>;
++};
++
++export type RollupOptions = {
++  /** Computes the day bucket key for an event (local-timezone vs. UTC vary by export). */
++  dayKey: (event: UsageEvent, account: Account) => string;
++  /** Whether `range.end` is treated as inclusive (CSV/billing) or exclusive (JSON). */
++  endInclusive: boolean;
++  /** When true, only events with `billable === true` are included (billing feed only). */
++  requireBillable?: boolean;
++};
++
++export function localDay(iso: string, offsetMinutes: number): string {
++  const shifted = new Date(new Date(iso).getTime() + offsetMinutes * 60_000);
++  return shifted.toISOString().slice(0, 10);
++}
++
++export function utcDay(iso: string): string {
++  return new Date(iso).toISOString().slice(0, 10);
++}
++
++/**
++ * Shared daily rollup used by every usage export. Filters `events` down to the given
++ * account, date range, and (optionally) billable-only events, then groups the remaining
++ * events into per-day buckets tracking total units, event ids, and per-product units.
++ * Callers choose the day-key strategy and end-of-range inclusivity so each export's
++ * existing output stays byte-for-byte identical.
++ */
++export function rollupDailyUsage(
++  account: Account,
++  events: UsageEvent[],
++  range: DateRange,
++  options: RollupOptions,
++): Map<string, DayBucket> {
++  const start = new Date(range.start).getTime();
++  const end = new Date(range.end).getTime();
++  const buckets = new Map<string, DayBucket>();
++
++  for (const event of events) {
++    if (event.accountId !== account.id) continue;
++    if (options.requireBillable && !event.billable) continue;
++    const at = new Date(event.occurredAt).getTime();
++    if (at < start || (options.endInclusive ? at > end : at >= end)) continue;
++
++    const day = options.dayKey(event, account);
++    const bucket = buckets.get(day) ?? { totalUnits: 0, eventIds: [], productUnits: new Map<string, number>() };
++    bucket.totalUnits += event.units;
++    bucket.eventIds.push(event.id);
++    bucket.productUnits.set(event.product, (bucket.productUnits.get(event.product) ?? 0) + event.units);
++    buckets.set(day, bucket);
++  }
++
++  return buckets;
++}
