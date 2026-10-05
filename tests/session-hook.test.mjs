@@ -81,6 +81,14 @@ describe("SessionStart hook", () => {
     expect(sessionStart.copilot.matcher).toBe("startup|resume|clear|compact");
   });
 
+  // Claude Code's plugin directory validator held 0.9.46 for a hook that found
+  // its sibling files through $0; hooks name them through the plugin root.
+  test("hook scripts do not locate files through $0", () => {
+    for (const script of ["session-start.sh", "pre-tool-use.sh"]) {
+      expect(readFileSync(join(pluginRoot, "hooks", script), "utf8")).not.toMatch(/dirname "?\$0/);
+    }
+  });
+
   test("names only skills that exist", () => {
     const named = [...mandate.matchAll(/(?:pstack:|`\/)([a-z0-9-]+)/g)].map((m) => m[1]);
     const skills = new Set(agentSkills(join(pluginRoot, "skills")).map(({ name }) => name));
@@ -106,6 +114,13 @@ describe("SessionStart hook", () => {
       test("injects the mandate when no sheet exists", () => {
         const r = runHook(runtime, null);
         expect({ ...r, out: wrap(r.out) }).toEqual({ status: 0, out: expected(false), err: "" });
+      });
+
+      // iconv rejects a UTF-16 LE sheet that ends mid-character, so the hook
+      // cannot decode it and must inject as it does for a missing sheet.
+      test("injects the mandate when the sheet cannot be decoded", () => {
+        const r = runHook(runtime, Buffer.from([0xff, 0xfe, 0x73, 0x00, 0x65]));
+        expect({ status: r.status, out: wrap(r.out) }).toEqual({ status: 0, out: expected(false) });
       });
 
       for (const { name, sheet, off } of sheetCases) {

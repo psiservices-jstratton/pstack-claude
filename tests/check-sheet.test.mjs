@@ -78,4 +78,9 @@ describe("check-sheet.sh", () => {
     const missing = join(home, "missing.md");
     expect(check(undefined, {}, [missing])).toEqual(invalid(`cannot read ${missing}`));
   });
+
+  test("fails when the sheet does not decode", () => {
+    writeFileSync(sheetPath, Buffer.from([0xff, 0xfe, 0x73, 0x00, 0x65]));
+    expect(check(undefined)).toEqual(invalid(`cannot decode ${sheetPath}`));
+  });
 });
