@@ -9,12 +9,14 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { install } from "../../plugins/pstack/pi/index.ts";
+import { writeSheet } from "../session-hook-sheets.mjs";
 
 export const pluginRoot = fileURLToPath(new URL("../../plugins/pstack/", import.meta.url));
 const fakePiBin = fileURLToPath(new URL("./fake-pi.mjs", import.meta.url));
 
 const fixtureModels = {
   available: ["opus", "fable", "sonnet", "haiku"],
+  efforts: ["low", "medium", "high", "xhigh", "max"],
   pi: {
     fallback: "anthropic",
     models: {
@@ -91,7 +93,7 @@ export function world({ script = {}, sheet = null } = {}) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "pstack-pi-")));
   const agentDir = join(root, "agent");
   mkdirSync(agentDir);
-  if (sheet !== null) writeFileSync(join(agentDir, "pstack-models.md"), sheet);
+  if (sheet !== null) writeSheet(join(agentDir, "pstack-models.md"), sheet);
   const modelsFile = join(root, "models.json");
   writeFileSync(modelsFile, JSON.stringify(fixtureModels));
   const scriptFile = join(root, "script.json");
@@ -103,14 +105,7 @@ export function world({ script = {}, sheet = null } = {}) {
     pluginRoot,
     modelsFile,
     agentDir,
-    pi: { command: fakePiBin, args: [] },
-    childEnv: {
-      PATH: process.env.PATH,
-      HOME: root,
-      PSTACK_PI_DEPTH: "1",
-      PSTACK_FAKE_PI_SCRIPT: scriptFile,
-      PSTACK_FAKE_PI_LOG: logFile,
-    },
+    pi: { command: fakePiBin, args: [scriptFile, logFile] },
     depth: 0,
     killGraceMs: 300,
     exitGraceMs: 1500,
@@ -181,6 +176,9 @@ export const listAgents = async (pi, ctx) => JSON.parse(resultText(await pi.call
 
 export const agentEntry = (data) => ({ type: "custom", customType: "pstack-agents", data });
 
+// A persisted record with fields replaced: identity ones under `agent`, the rest beside it.
+export const recordWith = (data, { agent = {}, ...state } = {}) => ({ ...data, ...state, agent: { ...data.agent, ...agent } });
+
 // An agent file's body, which is what its child gets as a system prompt.
 export const agentBody = (rel) => /^---\n[\s\S]*?\n---\n([\s\S]*)$/.exec(readFileSync(join(pluginRoot, rel), "utf8"))[1].trim();
 
@@ -202,10 +200,11 @@ export function gitRepo(dir) {
   return run;
 }
 
-export async function waitFor(predicate, timeoutMs = 5000) {
+// The default stays under bun's 5 s test timeout, so this error is the one reported.
+export async function waitFor(predicate, timeoutMs = 4000) {
   const deadline = Date.now() + timeoutMs;
   while (!(await predicate())) {
-    if (Date.now() > deadline) throw new Error("waitFor timed out");
+    if (Date.now() > deadline) throw new Error(`waitFor timed out after ${timeoutMs} ms: ${predicate}`);
     await sleep(20);
   }
 }

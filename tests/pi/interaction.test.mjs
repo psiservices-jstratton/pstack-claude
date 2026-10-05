@@ -1,7 +1,7 @@
 // ask_user_question, schedule_wakeup, and /loop through the fake ExtensionAPI.
 import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
 
-import { DONE, OTHER } from "../../plugins/pstack/pi/interaction.ts";
+import { DONE, OTHER } from "../../plugins/pstack/pi/ask.ts";
 import { useWorld } from "./harness.mjs";
 
 const setup = useWorld();
@@ -68,12 +68,54 @@ describe("ask_user_question", () => {
     expect(selects[1].options).toEqual(["Redis - in memory", OTHER, DONE]);
   });
 
-  test("several questions are asked in order, and a dismissal stops the run", async () => {
+  test("a later dismissal preserves completed answers in model-facing content and stops the run", async () => {
     const ui = scriptedUi(["Postgres - relational", undefined]);
     const { pi, ctx } = setup({ ctx: { hasUI: true, ui } });
-    const result = await pi.call("ask_user_question", { questions: [q(), q({ question: "Cache?" })] }, ctx);
+    const result = await pi.call("ask_user_question", { questions: [q(), q({ question: "Cache?" }), q({ question: "Queue?" })] }, ctx);
     expect(result.details).toEqual({ answers: [{ question: "Which store?", answer: "Postgres" }], dismissed: true });
+    expect(result.content[0].text).toContain('"Which store?"="Postgres"');
+    expect(result.content[0].text).toContain("The user dismissed the remaining questions without answering.");
+    expect(result.content[0].text).not.toContain('"Cache?"=');
+    expect(result.content[0].text).not.toContain('"Queue?"=');
+    expect(ui.calls.map((c) => c.title)).toEqual(["Store: Which store?", "Store: Cache?"]);
+  });
+
+  test("dismissing the first question still returns only a dismissal", async () => {
+    const ui = scriptedUi([undefined]);
+    const { pi, ctx } = setup({ ctx: { hasUI: true, ui } });
+    const result = await pi.call("ask_user_question", { questions: [q(), q({ question: "Cache?" })] }, ctx);
+    expect(result.details).toEqual({ answers: [], dismissed: true });
+    expect(result.content).toEqual([{ type: "text", text: "The user dismissed the question without answering." }]);
+    expect(ui.calls).toHaveLength(1);
+  });
+
+  test("dismissing Other input preserves earlier typed and completed multi-select answers", async () => {
+    const ui = scriptedUi([OTHER, "SQLite", "Postgres - relational", "Redis - in memory", DONE, OTHER, undefined]);
+    const { pi, ctx } = setup({ ctx: { hasUI: true, ui } });
+    const result = await pi.call("ask_user_question", {
+      questions: [q(), q({ question: "Caches?", multiSelect: true }), q({ question: "Queue?" })],
+    }, ctx);
+    expect(result.details).toEqual({
+      answers: [{ question: "Which store?", answer: "SQLite" }, { question: "Caches?", answer: "Postgres, Redis" }],
+      dismissed: true,
+    });
+    expect(result.content[0].text).toContain('"Which store?"="SQLite", "Caches?"="Postgres, Redis"');
     expect(result.content[0].text).toContain("dismissed");
+    expect(result.content[0].text).not.toContain('"Queue?"=');
+  });
+
+  test("completing all questions retains the success message and answer order", async () => {
+    const ui = scriptedUi(["Postgres - relational", "Redis - in memory"]);
+    const { pi, ctx } = setup({ ctx: { hasUI: true, ui } });
+    const result = await pi.call("ask_user_question", { questions: [q(), q({ question: "Cache?" })] }, ctx);
+    expect(result.details).toEqual({
+      answers: [{ question: "Which store?", answer: "Postgres" }, { question: "Cache?", answer: "Redis" }],
+      dismissed: false,
+    });
+    expect(result.content).toEqual([{
+      type: "text",
+      text: 'User has answered your questions: "Which store?"="Postgres", "Cache?"="Redis". You can now continue with the user\'s answers in mind.',
+    }]);
   });
 
   test("a child agent refuses ask_user_question even though rpc mode reports a UI", async () => {
@@ -227,6 +269,39 @@ describe("/loop", () => {
     expect(text).toContain('schedule_wakeup with prompt "/loop watch PR 42"');
     jest.advanceTimersByTime(24 * 3_600_000);
     expect(pi.userMessages).toHaveLength(1);
+  });
+
+  test("a new self-paced loop cancels the previous loop's pending wakeup", async () => {
+    const { pi, ctx, run } = loop();
+    await pi.call("schedule_wakeup", { delaySeconds: 60, prompt: "/loop watch old PR" }, ctx);
+    await run("watch new PR");
+    jest.advanceTimersByTime(60_000);
+    expect(pi.userMessages).toHaveLength(1);
+    expect(pi.userMessages[0].content).toStartWith("watch new PR\n");
+
+    await pi.call("schedule_wakeup", { delaySeconds: 120, prompt: "/loop watch new PR" }, ctx);
+    jest.advanceTimersByTime(120_000);
+    expect(pi.userMessages.map((m) => m.content)).toEqual([
+      expect.stringContaining("watch new PR\n"),
+      "/loop watch new PR",
+    ]);
+  });
+
+  test("a new self-paced loop also stops the previous fixed interval", async () => {
+    const { pi, run } = loop();
+    await run("1m old task");
+    await run("new task");
+    jest.advanceTimersByTime(120_000);
+    expect(pi.userMessages.map((m) => m.content)).toEqual(["old task", expect.stringContaining("new task\n")]);
+  });
+
+  test("a new fixed loop cancels the previous loop's pending wakeup and interval", async () => {
+    const { pi, ctx, run } = loop();
+    await pi.call("schedule_wakeup", { delaySeconds: 60, prompt: "/loop watch old PR" }, ctx);
+    await run("1m old task");
+    await run("2m new task");
+    jest.advanceTimersByTime(120_000);
+    expect(pi.userMessages.map((m) => m.content)).toEqual(["old task", "new task", "new task"]);
   });
 
   for (const mode of ["print", "json"]) {

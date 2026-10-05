@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 
 import { openingPrompt } from "../../plugins/pstack/skills/reflect/scripts/find-transcript.mjs";
 import { agentBody, alive as pidAlive, gitRepo, pluginRoot, readEntries, sleep } from "./harness.mjs";
-import { agentByDescription, assistantModels, childEntries, descendants, jsonLines, liveModels, MINUTE, PiRpc, processTable, sections, textOf } from "./live-harness.mjs";
+import { agentByDescription, assistantModels, childEntries, descendants, findSessionFile, jsonLines, liveModels, MINUTE, PiRpc, processTable, sections, textOf } from "./live-harness.mjs";
 
 const LIVE = process.env.PSTACK_PI_LIVE === "1";
 const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
@@ -48,10 +48,7 @@ async function withParent(fn) {
 }
 
 function parentSessionFile(sessionId) {
-  const dir = join(agentDir, "sessions");
-  const files = readdirSync(dir, { recursive: true }).filter((f) => f.endsWith(`_${sessionId}.jsonl`));
-  expect(files).toHaveLength(1);
-  return join(dir, files[0]);
+  return findSessionFile(join(agentDir, "sessions"), sessionId);
 }
 
 const suite = LIVE ? describe : describe.skip;
@@ -66,7 +63,6 @@ suite("pstack on live pi", () => {
     mkdirSync(work);
     symlinkSync(join(homedir(), ".pi", "agent", "auth.json"), join(agentDir, "auth.json"));
     env = { ...process.env, PI_CODING_AGENT_DIR: agentDir, PI_TELEMETRY: "0" };
-    delete env.PSTACK_PI_DEPTH;
     const install = spawnSync("pi", ["install", repoRoot], { cwd: work, env, encoding: "utf8" });
     if (install.status !== 0) throw new Error(`pi install failed: ${install.stderr}`);
     // Keep no recent tokens so a two-turn session is big enough to compact.
@@ -115,9 +111,9 @@ suite("pstack on live pi", () => {
         for (const [description, [alias, word]] of Object.entries(expected)) {
           const snaps = agentByDescription(file, description);
           const last = snaps.at(-1);
-          expect(last).toMatchObject({ status: "completed", model: MODELS.get(alias) });
+          expect(last).toMatchObject({ status: "completed", agent: { model: MODELS.get(alias) } });
           expect(pidAlive(last.pid)).toBe(false);
-          const notice = notices.find((n) => n.details.agentId === last.id);
+          const notice = notices.find((n) => n.details.agentId === last.agent.id);
           expect(notice.details.status).toBe("completed");
           expect(textOf(notice).toLowerCase()).toContain(word);
           const child = childEntries(last);
@@ -151,18 +147,18 @@ suite("pstack on live pi", () => {
         const tree = descendants(record.pid).map((p) => p.pid);
 
         const stopFrom = await parent.run(
-          `Call stop_agent with id "${record.id}". Then call list_agents. Then reply with exactly one word: stopped. Reply to any completion notice with exactly one word: noted.`,
+          `Call stop_agent with id "${record.agent.id}". Then call list_agents. Then reply with exactly one word: stopped. Reply to any completion notice with exactly one word: noted.`,
         );
         const [stopResult] = parent.toolResults("stop_agent", stopFrom);
-        expect(JSON.parse(textOf(stopResult))).toMatchObject({ agentId: record.id, status: "stopped" });
+        expect(JSON.parse(textOf(stopResult))).toMatchObject({ agentId: record.agent.id, status: "stopped" });
         expect(pidAlive(record.pid)).toBe(false);
         expect(pidAlive(sleeper.pid)).toBe(false);
         expect(tree.filter(pidAlive)).toEqual([]);
         expect(processTable().filter((p) => p.pgid === record.pid)).toEqual([]);
         const [listResult] = parent.toolResults("list_agents", stopFrom);
-        expect(JSON.parse(textOf(listResult)).find((a) => a.id === record.id).status).toBe("stopped");
+        expect(JSON.parse(textOf(listResult)).find((a) => a.id === record.agent.id).status).toBe("stopped");
         expect(agentByDescription(file, "sleeper").at(-1).status).toBe("stopped");
-        const notice = parent.notices(from).find((n) => n.details.agentId === record.id);
+        const notice = parent.notices(from).find((n) => n.details.agentId === record.agent.id);
         expect(notice.details.status).toBe("stopped");
         expect(textOf(notice)).toContain("(stopped before it replied)");
       });
@@ -186,9 +182,9 @@ suite("pstack on live pi", () => {
         const file = await parent.sessionFile();
         const snaps = agentByDescription(file, "keeper");
         const [notice] = parent.notices(from);
-        expect(notice.details).toMatchObject({ agentId: snaps[0].id, status: "completed" });
+        expect(notice.details).toMatchObject({ agentId: snaps[0].agent.id, status: "completed" });
         expect(textOf(notice)).toContain("PELICAN-42");
-        expect(new Set(snaps.map((s) => s.sessionId)).size).toBe(1);
+        expect(new Set(snaps.map((s) => s.agent.sessionId)).size).toBe(1);
         const prompts = childEntries(snaps[0])
           .filter((e) => e.type === "message" && e.message.role === "user")
           .map((e) => textOf(e.message));
@@ -221,14 +217,14 @@ suite("pstack on live pi", () => {
         );
         expect(pidAlive(record.pid)).toBe(true);
         const [sent] = parent.toolResults("send_message", sendFrom);
-        expect(sent.details).toEqual({ agentId: record.id, running: true });
+        expect(sent.details).toEqual({ agentId: record.agent.id, running: true });
 
         await parent.until(() => parent.notices(from).length >= 1, 4 * MINUTE, "the completion notice");
         await parent.idle(from);
         await sleep(5000);
         const notices = parent.notices(from);
         expect(notices).toHaveLength(1);
-        expect(notices[0].details).toMatchObject({ agentId: record.id, status: "completed" });
+        expect(notices[0].details).toMatchObject({ agentId: record.agent.id, status: "completed" });
         expect(textOf(notices[0])).toContain("BRAVO");
         expect(readFileSync(out, "utf8").trim()).toBe("BRAVO");
 
@@ -254,7 +250,7 @@ suite("pstack on live pi", () => {
           'Make one agent tool call in the foreground with subagent_type "pstack:effort-high", description "effort", prompt "Reply with exactly one word: done". Then reply with exactly one word: ok.',
         );
         const record = agentByDescription(await parent.sessionFile(), "effort").at(-1);
-        expect(record).toMatchObject({ status: "completed", subagentType: "pstack:effort-high", thinking: "high" });
+        expect(record).toMatchObject({ status: "completed", agent: { subagentType: "pstack:effort-high", thinking: "high" } });
         const child = childEntries(record);
         const levels = child.filter((e) => e.type === "thinking_level_change").map((e) => e.thinkingLevel);
         expect(levels.at(-1)).toBe("high");
@@ -277,28 +273,28 @@ suite("pstack on live pi", () => {
         const file = await parent.sessionFile();
         const clean = agentByDescription(file, "wt-clean").at(-1);
         const prefix = join(work, ".claude", "worktrees", "agent-");
-        expect(clean.worktree.path.startsWith(prefix)).toBe(true);
+        expect(clean.agent.worktree.path.startsWith(prefix)).toBe(true);
         const [cleanResult] = parent.toolResults("agent", cleanFrom);
-        expect(textOf(cleanResult)).toContain(`worktree: ${clean.worktree.path} (no changes; removed)`);
+        expect(textOf(cleanResult)).toContain(`worktree: ${clean.agent.worktree.path} (no changes; removed)`);
         const bashOut = childEntries(clean)
           .filter((e) => e.type === "message" && e.message.role === "toolResult" && e.message.toolName === "bash")
           .map((e) => textOf(e.message).trim());
-        expect(bashOut).toContain(clean.worktree.path);
-        expect(existsSync(clean.worktree.path)).toBe(false);
-        expect(git("worktree", "list", "--porcelain")).not.toContain(clean.worktree.path);
-        expect(git("branch", "--list", clean.worktree.branch)).toBe("");
+        expect(bashOut).toContain(clean.agent.worktree.path);
+        expect(existsSync(clean.agent.worktree.path)).toBe(false);
+        expect(git("worktree", "list", "--porcelain")).not.toContain(clean.agent.worktree.path);
+        expect(git("branch", "--list", clean.agent.worktree.branch)).toBe("");
 
         const dirtyFrom = await parent.run(
           'Make one agent tool call in the foreground with subagent_type "pstack:poteto-agent", isolation "worktree", description "wt-dirty", prompt "Use the bash tool to run exactly: echo hi > note.txt. Then reply with exactly one word: done". Then reply with exactly one word: ok.',
         );
         const dirty = agentByDescription(file, "wt-dirty").at(-1);
-        expect(dirty.subagentType).toBe("pstack:poteto-agent");
+        expect(dirty.agent.subagentType).toBe("pstack:poteto-agent");
         expect(sections(childEntries(dirty)).addendum).toContain(agentBody("agents/poteto-agent.md"));
         const [dirtyResult] = parent.toolResults("agent", dirtyFrom);
-        expect(textOf(dirtyResult)).toContain(`worktree: ${dirty.worktree.path} (branch ${dirty.worktree.branch})`);
-        expect(readFileSync(join(dirty.worktree.path, "note.txt"), "utf8")).toBe("hi\n");
-        expect(git("worktree", "list", "--porcelain")).toContain(dirty.worktree.path);
-        git("worktree", "remove", "--force", dirty.worktree.path);
+        expect(textOf(dirtyResult)).toContain(`worktree: ${dirty.agent.worktree.path} (branch ${dirty.agent.worktree.branch})`);
+        expect(readFileSync(join(dirty.agent.worktree.path, "note.txt"), "utf8")).toBe("hi\n");
+        expect(git("worktree", "list", "--porcelain")).toContain(dirty.agent.worktree.path);
+        git("worktree", "remove", "--force", dirty.agent.worktree.path);
       });
     },
     6 * MINUTE,
@@ -410,7 +406,10 @@ suite("pstack on live pi", () => {
           encoding: "utf8",
         });
         expect({ cwd, code: run.status, stderr: run.status === 0 ? "" : run.stderr }).toEqual({ cwd, code: 0, stderr: "" });
-        const events = run.stdout.split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+        const events = [];
+        const lines = jsonLines((e) => events.push(e));
+        lines.write(run.stdout);
+        lines.end();
         const entries = readEntries(parentSessionFile(events.find((e) => e.type === "session").id));
         const system = entries.find((e) => e.type === "message" && e.message.role === "system").message;
         const declared = system.toolsAdded.map((t) => t.name);
@@ -437,7 +436,7 @@ suite("pstack on live pi", () => {
       );
       const events = [];
       let stderr = "";
-      proc.stdout.on("data", jsonLines((e) => events.push(e)));
+      proc.stdout.on("data", jsonLines((e) => events.push(e)).write);
       proc.stderr.on("data", (d) => (stderr += d));
       const code = await new Promise((r) => proc.on("close", r));
       expect({ code, stderr: code === 0 ? "" : stderr }).toEqual({ code: 0, stderr: "" });
@@ -452,7 +451,7 @@ suite("pstack on live pi", () => {
       expect(events.at(-1).type).toBe("agent_settled");
       const sessionId = events.find((e) => e.type === "session").id;
       const record = agentByDescription(parentSessionFile(sessionId), "printbg").at(-1);
-      expect(record).toMatchObject({ id: notice.details.agentId, status: "completed" });
+      expect(record).toMatchObject({ agent: { id: notice.details.agentId }, status: "completed" });
       expect(pidAlive(record.pid)).toBe(false);
     },
     5 * MINUTE,

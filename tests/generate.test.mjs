@@ -48,7 +48,7 @@ import {
   tableRows,
   validateHooks,
 } from "../tools/generate.mjs";
-import { piModelNamesSection, RUNTIMES, validateCodexMarketplace, validatePiPackage } from "../tools/runtimes.mjs";
+import { piModelNamesSection, RUNTIMES, validateCodexMarketplace, validateCopilotManifest, validatePiPackage } from "../tools/runtimes.mjs";
 import { walk } from "../tools/validate-skills.mjs";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
@@ -226,6 +226,22 @@ describe("validateCodexMarketplace", () => {
   });
 });
 
+describe("validateCopilotManifest", () => {
+  const claude = { name: "pstack" };
+  const ok = { name: "pstack", hooks: "hooks/copilot-hooks.json" };
+  test("needs the Claude Code name and a hooks file that exists", () => {
+    const pathExists = (rel) => rel === "plugins/pstack/hooks/copilot-hooks.json";
+    expect(() => validateCopilotManifest(ok, { claude, pathExists })).not.toThrow();
+    expect(() => validateCopilotManifest({ ...ok, name: "other" }, { claude, pathExists })).toThrow(
+      'name "other" != Claude Code manifest name "pstack"',
+    );
+    expect(() => validateCopilotManifest({ ...ok, hooks: "hooks/nope.json" }, { claude, pathExists })).toThrow(
+      'hooks "hooks/nope.json" is not a file in the plugin',
+    );
+    expect(() => validateCopilotManifest({ name: "pstack" }, { claude, pathExists })).toThrow("is not a file in the plugin");
+  });
+});
+
 describe("manifests", () => {
   const json = (rel) => JSON.parse(readFileSync(join(repoRoot, rel), "utf8"));
   const claude = json("plugins/pstack/.claude-plugin/plugin.json");
@@ -233,6 +249,7 @@ describe("manifests", () => {
   const claudeMarketplace = json(".claude-plugin/marketplace.json");
   const codexMarketplace = json(".agents/plugins/marketplace.json");
   const piPackage = json("package.json");
+  const copilot = json("plugins/pstack/.github/plugin/plugin.json");
 
   test("the plugin and marketplace manifests agree on every fact they repeat", () => {
     const shared = ({ name, author, homepage, repository, license, keywords }) =>
@@ -243,6 +260,8 @@ describe("manifests", () => {
     expect(claudeMarketplace.plugins.map(({ name, source }) => [name, source])).toEqual([[claude.name, "./plugins/pstack"]]);
     expect(shared(piPackage)).toEqual({ ...shared(claude), keywords: ["pi-package", ...claude.keywords] });
     expect(piPackage.version).toBe(claude.version);
+    expect({ ...shared(copilot), keywords: claude.keywords }).toEqual(shared(claude));
+    expect(copilot.version).toBe(claude.version);
     expect(codexMarketplace.name).toBe(claudeMarketplace.name);
     expect(codexMarketplace.interface.displayName).toBe(codex.interface.displayName);
     expect(codexMarketplace.plugins.map(({ name, source, category }) => [name, source.path, category])).toEqual([
@@ -289,8 +308,8 @@ describe("validatePiPackage", () => {
 });
 
 describe("validateHooks", () => {
-  const hooks = (command) =>
-    JSON.stringify({ hooks: { SessionStart: [{ hooks: [{ type: "command", command }] }] } });
+  const hooks = (command, commandWindows) =>
+    JSON.stringify({ hooks: { SessionStart: [{ hooks: [{ type: "command", command, commandWindows }] }] } });
   const exec = { mode: 0o755 };
   const plain = { mode: 0o644 };
 
@@ -309,12 +328,76 @@ describe("validateHooks", () => {
     );
   });
 
+  test("checks references under the runtime's own root variable", () => {
+    const statOf = (rel) => (rel === "hooks/session-start.sh" ? exec : null);
+    const copilotCmd = hooks('"${COPILOT_PLUGIN_ROOT}/hooks/session-start.sh" copilot');
+    expect(() => validateHooks(copilotCmd, { statOf, root: "COPILOT_PLUGIN_ROOT" })).not.toThrow();
+    expect(() => validateHooks(copilotCmd, { statOf })).toThrow("command does not reference ${CLAUDE_PLUGIN_ROOT}");
+    expect(() => validateHooks(hooks('"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh"'), { statOf, root: "COPILOT_PLUGIN_ROOT" })).toThrow(
+      "command does not reference ${COPILOT_PLUGIN_ROOT}",
+    );
+  });
+
   test("names a missing or non-executable target", () => {
     expect(() => validateHooks(hooks('"${CLAUDE_PLUGIN_ROOT}/hooks/nope"'), { statOf: () => null })).toThrow(
       "SessionStart: hooks/nope does not exist",
     );
     expect(() => validateHooks(hooks('"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh"'), { statOf: () => plain })).toThrow(
       "hooks/session-start.sh is not executable",
+    );
+  });
+
+  test("checks the Windows override path without requiring an executable bit for PowerShell", () => {
+    const cmd = hooks(
+      '"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh" codex',
+      'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.ps1"',
+    );
+    const statOf = (rel) => rel.endsWith(".sh") ? exec : plain;
+    expect(() => validateHooks(cmd, { statOf })).not.toThrow();
+    expect(() => validateHooks(cmd, { statOf: (rel) => rel.endsWith(".sh") ? exec : null })).toThrow(
+      "SessionStart: hooks/session-start.ps1 does not exist",
+    );
+  });
+
+  test("names a hook without a command, even when it has a Windows override", () => {
+    const windows = 'powershell.exe -File "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.ps1"';
+    for (const cmd of [hooks(undefined), hooks(undefined, windows)]) {
+      expect(() => validateHooks(cmd, { statOf: () => plain })).toThrow(
+        "SessionStart: hook must have required properties command",
+      );
+    }
+  });
+
+  test("faults a Windows override that is not a string and names the file", () => {
+    const cmd = hooks('"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh"', 5);
+    expect(() => validateHooks(cmd, { statOf: () => exec, file: "hooks/codex-hooks.json" })).toThrow(
+      "hooks/codex-hooks.json:\n  SessionStart: commandWindows must be string",
+    );
+  });
+
+  test("faults a key no hook type documents, so a misspelt override is not dropped", () => {
+    const hook = { type: "command", command: '"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh"', commandWindow: "x.ps1" };
+    const cmd = JSON.stringify({ hooks: { SessionStart: [{ hooks: [hook] }] } });
+    expect(() => validateHooks(cmd, { statOf: () => exec })).toThrow("SessionStart: unknown key commandWindow");
+  });
+
+  test("accepts a prompt hook, which carries a prompt instead of a command", () => {
+    const stop = (hook) => JSON.stringify({ hooks: { Stop: [{ hooks: [hook] }] } });
+    expect(() => validateHooks(stop({ type: "prompt", prompt: "Review $ARGUMENTS" }), { statOf: () => null })).not.toThrow();
+    expect(() => validateHooks(stop({ type: "prompt" }), { statOf: () => null })).toThrow(
+      "Stop: hook must have required properties prompt",
+    );
+    expect(() => validateHooks(stop({ type: "webhook", command: "x" }), { statOf: () => null })).toThrow(
+      'Stop: hook type "webhook" is not one of command, http, mcp_tool, prompt, agent',
+    );
+    expect(() => validateHooks(stop({ type: "constructor" }), { statOf: () => null })).toThrow(
+      'Stop: hook type "constructor" is not one of command, http, mcp_tool, prompt, agent',
+    );
+  });
+
+  test("faults an event whose value is not a list of matcher groups", () => {
+    expect(() => validateHooks(JSON.stringify({ hooks: { SessionStart: {} } }), { statOf: () => exec })).toThrow(
+      "hooks/hooks.json:\n  hooks.SessionStart must be array",
     );
   });
 
@@ -374,7 +457,7 @@ describe("slashCommands", () => {
     for (const menu of samples) {
       let parsed;
       try {
-        parsed = Bun.YAML.parse(promptStub({ name: "b", menu }).split("---\n")[1]).description;
+        parsed = Bun.YAML.parse(promptStub({ name: "b", menu }, RUNTIMES[0]).split("---\n")[1]).description;
       } catch {}
       let accepted = true;
       try {
@@ -532,10 +615,11 @@ describe("lead lines", () => {
     expect(() => noteSkills(codex, "no table\n")).toThrow('"| Skill | On Codex |" table header not found');
   });
 
-  test("a prompt stub points at codex-tools.md unless its skill carries the Codex preamble", () => {
+  test("a prompt stub points at its runtime's mapping file unless its skill carries that runtime's preamble", () => {
     const pointer = "through `poteto-mode/references/codex-tools.md`, including its Per-skill notes.";
-    expect(promptStub({ name: "tdd", menu: "m" }, { preamble: false })).toContain(pointer);
-    expect(promptStub({ name: "how", menu: "m" }, { preamble: true })).toBe(
+    expect(promptStub({ name: "tdd", menu: "m" }, codex, { preamble: false })).toContain(pointer);
+    expect(promptStub({ name: "tdd", menu: "m" }, pi, { preamble: false })).toContain("`poteto-mode/references/pi-tools.md`");
+    expect(promptStub({ name: "how", menu: "m" }, codex, { preamble: true })).toBe(
       "---\nname: how\ndescription: m\ndisable-model-invocation: true\n---\n\nInvoke the `how` skill and follow it.\n",
     );
   });
@@ -622,6 +706,7 @@ describe("plan, changes, apply", () => {
   const repoCopy = () => {
     const dir = scratch("pstack-generate-");
     cpSync(repoRoot, dir, { recursive: true, filter: (src) => ![".git", "node_modules"].includes(basename(src)) });
+    symlinkSync(join(repoRoot, "node_modules"), join(dir, "node_modules"));
     return dir;
   };
   const snapshot = (dir) => Object.fromEntries(walk(dir).map((path) => [path, readFileSync(path, "utf8")]));
@@ -918,5 +1003,19 @@ describe("plan, changes, apply", () => {
         expect.stringContaining("plugins/pstack/skills/tdd/SKILL.md:"),
       ]);
     }
+  });
+
+  test("problems checks the Copilot manifest and the hooks file it names", () => {
+    const root = repoCopy();
+    const manifest = "plugins/pstack/.github/plugin/plugin.json";
+    const hooks = "plugins/pstack/hooks/copilot-hooks.json";
+    writeFileSync(join(root, hooks), readFileSync(join(root, hooks), "utf8").replace("hooks/pre-tool-use.sh", "hooks/gone.sh"));
+    expect(problems(root)).toEqual([expect.stringContaining("hooks/gone.sh does not exist")]);
+    const text = readFileSync(join(root, manifest), "utf8");
+    writeFileSync(join(root, manifest), text.replace('"name": "pstack"', '"name": "other"'));
+    expect(problems(root)).toEqual([
+      expect.stringContaining(`${manifest}: name "other"`),
+      expect.stringContaining("hooks/gone.sh does not exist"),
+    ]);
   });
 });

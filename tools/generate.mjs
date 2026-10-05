@@ -5,13 +5,13 @@
 // nothing and fails when a committed copy is stale, so it cannot ship.
 //
 // Sources of truth:
-//   VERSION  -> the "version" field in the plugin manifests and the Pi package.json
+//   VERSION  -> the "version" field in the Claude Code manifests and each RUNTIMES row's manifest
 //   CHANGES.md must carry a heading for the current VERSION (release completeness)
 //   each skill's frontmatter (name + description) defines the shared Agent
 //   Skills boundary consumed natively by Codex, Prime, opencode, and Gemini CLI
 //   docs/reference.md's "Slash commands" table (one row per public skill, in editorial
-//   order; the row text is the Codex slash-menu one-liner)
-//     -> its Codex prompt stub in plugins/pstack/.codex-plugin/prompts/
+//   order; the row text is the slash-menu one-liner)
+//     -> its prompt stub in the prompts directory of each RUNTIMES row that has one
 //   The row set must equal the public skills (every Agent Skill not marked
 //   user-invocable: false); a skill without a row or a row without a skill
 //   fails by name.
@@ -28,12 +28,9 @@
 //   the Per-skill notes table in poteto-mode/references/copilot-tools.md
 //     -> the GitHub Copilot preamble under the same heading, after any Codex one
 //   DRIVER_PLAYBOOKS -> the driver-skill line under each playbook's first heading
-//   hooks/session-start-context.md + hooks/session-start-copilot.md
-//     + hooks/session-start-copilot-sheet.md
-//     -> hooks/session-start-context.json, the Copilot hook's JSON output, whose
-//        marker the hook replaces with the sheet's role lines
-//   ... + hooks/session-start-copilot-nosheet.md
-//     -> hooks/session-start-context-nosheet.json, its output with no Copilot sheet
+//   plugins/pstack/models.json's roles, again
+//     -> the role list in setup-pstack's scripts/sheet.awk, which checks a Copilot sheet
+//     -> the list of skills that dispatch on role models in hooks/session-start-copilot.md
 //   plugins/pstack/{agents,effort-agents}/*.md -> the "agents" list in
 //     plugins/pstack/.claude-plugin/plugin.json (a list replaces the default
 //     agents/ directory, so it names every agent)
@@ -43,10 +40,9 @@
 //   No other model name (a claude-* ID or a backticked family name) may appear
 //   in skill prose; the scan below fails on strays.
 //
-// Also validated: .agents/plugins/marketplace.json points at a real plugin
-// directory whose Codex manifest name matches (it carries no version; Codex
-// reads the version from .codex-plugin/plugin.json), and the repo-root
-// package.json that makes the repo a Pi package lists paths that exist.
+// Also validated: each RUNTIMES row's packaging, through the row's `validate`
+// (tools/runtimes.mjs), and every hooks file, the Claude Code plugin's and the
+// ones each row's manifest names.
 
 import {
   existsSync,
@@ -62,7 +58,11 @@ import {
 import { basename, dirname, join, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { code, codeList, PLUGIN, RUNTIMES, SKILLS, validateCodexMarketplace, validatePiPackage } from "./runtimes.mjs";
+import { Type } from "typebox";
+import { Value } from "typebox/value";
+
+import { code, codeList, PLUGIN, SKILLS } from "./plugin.mjs";
+import { RUNTIMES, roleSkills } from "./runtimes.mjs";
 import { markdownFiles, pathIsInside, validateProsePaths, validateSkillsTree, walk } from "./validate-skills.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -72,9 +72,8 @@ const PROMPT_RUNTIMES = RUNTIMES.filter((runtime) => runtime.prompts);
 
 const VERSIONED_MANIFESTS = [
   ".claude-plugin/marketplace.json",
-  "plugins/pstack/.claude-plugin/plugin.json",
-  "plugins/pstack/.codex-plugin/plugin.json",
-  "package.json",
+  `${PLUGIN}/.claude-plugin/plugin.json`,
+  ...RUNTIMES.map((runtime) => runtime.manifest),
 ];
 
 export const PORTABLE_ASSETS = [
@@ -174,10 +173,11 @@ export function agentSkills(skillsDir) {
 export function validatePluginLayout(pluginRoot) {
   // CHANGES 0.9.13 (#22): Claude Code lists a plugin's commands and its
   // user-invocable skills in the slash menu, so a command trampoline beside a
-  // same-named skill shows twice. The Codex trampolines live in
-  // .codex-plugin/prompts/, which only Codex reads.
+  // same-named skill shows twice. Trampolines live in a runtime's prompts
+  // directory, which only that runtime reads.
   if (existsSync(join(pluginRoot, "commands"))) {
-    throw new Error("plugins/pstack/commands/ exists; trampolines belong in .codex-plugin/prompts/ (CHANGES 0.9.13)");
+    const prompts = PROMPT_RUNTIMES.map((runtime) => runtime.prompts).join(", ");
+    throw new Error(`${PLUGIN}/commands/ exists; trampolines belong in ${prompts} (CHANGES 0.9.13)`);
   }
   // #58: a plugin's agents register under the plugin namespace, so a dispatch
   // of the bare name errors at runtime with "Agent type 'x' not found".
@@ -259,15 +259,15 @@ export function slashCommands(markdown, skillNames) {
   return rows;
 }
 
-// Optional Codex slash shortcut. Skills also link to the platform mapping so
-// native invocation and skills-only installs do not depend on these stubs. A
-// skill with the stamped Codex preamble already sends the reader to the
-// mapping, so its stub does not say it again.
-export function promptStub({ name, menu }, { preamble } = {}) {
+// Optional slash shortcut for a runtime with a prompts directory. Skills also
+// link to the platform mapping so native invocation and skills-only installs
+// do not depend on these stubs. A skill with the runtime's stamped preamble
+// already sends the reader to the mapping, so its stub does not say it again.
+export function promptStub({ name, menu }, runtime, { preamble } = {}) {
   const pointer = preamble
     ? ""
     : " Resolve Claude tool names, Claude model names, and Claude built-in skills through " +
-      "`poteto-mode/references/codex-tools.md`, including its Per-skill notes.";
+      `\`poteto-mode/references/${runtime.mapping}\`, including its Per-skill notes.`;
   return (
     `---\nname: ${name}\ndescription: ${menu}\ndisable-model-invocation: true\n---\n\n` +
     `Invoke the \`${name}\` skill and follow it.${pointer}\n`
@@ -311,7 +311,38 @@ export const tableRows = (header, rowPrefix) => (lines) => {
   return [start + 2, end];
 };
 
+// The lines strictly between the line `open` and the next line `close`.
+export const between = (open, close) => (lines) => {
+  const start = lines.indexOf(open);
+  if (start === -1) return null;
+  const end = lines.indexOf(close, start + 1);
+  return end === -1 ? null : [start + 1, end];
+};
+
+// The one line that starts with `prefix`.
+export const lineStartingWith = (prefix) => (lines) => {
+  const at = lines.findIndex((l) => l.startsWith(prefix));
+  return at === -1 ? null : [at, at + 1];
+};
+
 const blankPadded = (body) => ["", ...body.split("\n"), ""];
+
+const SHEET_ROLES_OPEN = "  # Stamped from plugins/pstack/models.json; edit there and rerun tools/generate.mjs.";
+const ROLE_SKILLS_LINE = "Skills that dispatch on role models:";
+
+// awk string literals: models.json role labels and effort levels hold no quote
+// or backslash, which parseModels does not check, so check here.
+function sheetRoles(models) {
+  const quote = (s) => {
+    if (/["\\]/.test(s)) throw new Error(`models.json: "${s}" cannot go in an awk string`);
+    return `"${s}"`;
+  };
+  return [
+    ...models.roles.map((r) => `  roles[++n] = ${quote(r.role)}`),
+    ...models.roles.filter((r) => r.tier === "panel").map((r) => `  panel[${quote(r.role)}] = 1`),
+    ...models.efforts.map((level) => `  SHEET_EFFORT[${quote(level)}] = 1`),
+  ];
+}
 
 function requiredRole(models, label) {
   const role = models.roles.find((r) => r.role === label);
@@ -371,6 +402,29 @@ export function regions(models) {
       locate: section("Model names"),
       render: () => blankPadded(runtime.modelNames(models)),
     })),
+    {
+      file: skillFile("setup-pstack").replace("SKILL.md", "scripts/sheet.awk"),
+      name: "role list",
+      locate: between(SHEET_ROLES_OPEN, "  return n"),
+      render: () => sheetRoles(models),
+    },
+    {
+      file: skillFile("setup-pstack").replace("SKILL.md", "copilot.md"),
+      name: "roles by tier",
+      locate: tableRows("| Tier | Roles |", "| "),
+      render: () =>
+        [
+          ["Default", "default"],
+          ["Strongest", "strongest"],
+          ["Panel", "panel"],
+        ].map(([label, tier]) => `| ${label} | ${models.roles.filter((r) => r.tier === tier).map((r) => code(r.role)).join(", ")} |`),
+    },
+    {
+      file: `${PLUGIN}/hooks/session-start-copilot.md`,
+      name: "role-model skill list",
+      locate: lineStartingWith(ROLE_SKILLS_LINE),
+      render: () => [`${ROLE_SKILLS_LINE} ${roleSkills(models).map(code).join(", ")}.`],
+    },
   ];
 }
 
@@ -471,7 +525,7 @@ export function parseModels(raw, skillExists) {
   };
   const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
   for (const key of ["available", "efforts", "roles"]) if (!Array.isArray(raw[key])) fail(`"${key}" must be a list`);
-  for (const key of ["tiers", ...RUNTIMES.map((runtime) => runtime.key)]) {
+  for (const key of ["tiers", ...RUNTIMES.filter((runtime) => runtime.key).map((runtime) => runtime.key)]) {
     if (!isObject(raw[key])) fail(`"${key}" must be an object`);
   }
   const available = new Set(raw.available);
@@ -512,7 +566,7 @@ export function parseModels(raw, skillExists) {
   if (!raw.efforts.includes(raw.defaultEffort) && raw.defaultEffort !== "session") {
     fail(`defaultEffort "${raw.defaultEffort}" is not an effort level or "session"`);
   }
-  for (const runtime of RUNTIMES) runtime.checkModels(raw[runtime.key], { raw, fail, unique, isObject });
+  for (const runtime of RUNTIMES) runtime.checkModels?.(raw[runtime.key], { raw, fail, unique, isObject });
   return resolveModels(raw);
 }
 
@@ -709,20 +763,87 @@ export function strayModelSlugs(file, text, models) {
   return strays;
 }
 
-// Every ${CLAUDE_PLUGIN_ROOT}/<path> a hook command names must exist in the
-// plugin, and one the command executes directly must be executable, or the
-// SessionStart hook fails silently for every user.
-export function validateHooks(hooksJson, { statOf, file = "hooks/hooks.json" }) {
-  const faults = [];
-  for (const [event, groups] of Object.entries(JSON.parse(hooksJson).hooks ?? {})) {
-    for (const group of groups) {
-      for (const hook of group.hooks ?? []) {
-        const refs = [...hook.command.matchAll(/\$\{CLAUDE_PLUGIN_ROOT\}\/([^"\s]+)/g)].map((m) => m[1]);
+// The hook handler shapes Claude Code documents, one schema per `type`
+// (https://code.claude.com/docs/en/hooks, "Hook handler fields"), plus Codex's
+// commandWindows on a command hook. A key no type lists is a fault, so a
+// misspelt override cannot be dropped without notice.
+const HOOK_FIELDS = {
+  if: Type.Optional(Type.String()),
+  timeout: Type.Optional(Type.Number()),
+  statusMessage: Type.Optional(Type.String()),
+  once: Type.Optional(Type.Boolean()),
+};
+const hookType = (type, fields) =>
+  Type.Object({ type: Type.Literal(type), ...fields, ...HOOK_FIELDS }, { additionalProperties: false });
+const HOOK_TYPES = {
+  command: hookType("command", {
+    command: Type.String(),
+    commandWindows: Type.Optional(Type.String()),
+    args: Type.Optional(Type.Array(Type.String())),
+    async: Type.Optional(Type.Boolean()),
+    asyncRewake: Type.Optional(Type.Boolean()),
+    shell: Type.Optional(Type.Union([Type.Literal("bash"), Type.Literal("powershell")])),
+  }),
+  http: hookType("http", {
+    url: Type.String(),
+    headers: Type.Optional(Type.Record(Type.String(), Type.String())),
+    allowedEnvVars: Type.Optional(Type.Array(Type.String())),
+  }),
+  mcp_tool: hookType("mcp_tool", {
+    server: Type.String(),
+    tool: Type.String(),
+    input: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+  }),
+  prompt: hookType("prompt", { prompt: Type.String(), model: Type.Optional(Type.String()) }),
+  agent: hookType("agent", { prompt: Type.String(), model: Type.Optional(Type.String()) }),
+};
+const MATCHER_GROUP = Type.Object(
+  { matcher: Type.Optional(Type.String()), hooks: Type.Array(Type.Object({ type: Type.String() })) },
+  { additionalProperties: false },
+);
+const HOOKS_FILE = Type.Object({ hooks: Type.Record(Type.String(), Type.Array(MATCHER_GROUP)) });
+
+// typebox reports an unknown key twice, as a false schema at the key and as
+// additionalProperties on its object; the second names every such key.
+function shapeFaults(schema, value, subject) {
+  return [...Value.Errors(schema, value)]
+    .filter((error) => error.keyword !== "boolean")
+    .map((error) =>
+      error.keyword === "additionalProperties"
+        ? `unknown key ${error.params.additionalProperties.join(", ")}`
+        : `${error.instancePath.slice(1).replaceAll("/", ".") || subject} ${error.message}`,
+    );
+}
+
+// A hooks file must have the documented shape, every ${<root>}/<path> a
+// command hook names must exist in the plugin, and one the command executes
+// directly must be executable, or the SessionStart hook fails silently for
+// every user.
+// The root is the variable the runtime exports with the plugin's directory.
+export function validateHooks(hooksJson, { statOf, file = "hooks/hooks.json", root = "CLAUDE_PLUGIN_ROOT" }) {
+  const raw = JSON.parse(hooksJson);
+  const faults = shapeFaults(HOOKS_FILE, raw, "file");
+  if (faults.length) throw new Error(`${file}:\n  ${faults.join("\n  ")}`);
+  for (const [event, groups] of Object.entries(raw.hooks)) {
+    for (const hook of groups.flatMap((group) => group.hooks)) {
+      const schema = Object.hasOwn(HOOK_TYPES, hook.type) ? HOOK_TYPES[hook.type] : undefined;
+      if (!schema) {
+        faults.push(`${event}: hook type "${hook.type}" is not one of ${Object.keys(HOOK_TYPES).join(", ")}`);
+        continue;
+      }
+      const shape = shapeFaults(schema, hook, "hook");
+      if (shape.length) {
+        faults.push(...shape.map((fault) => `${event}: ${fault}`));
+        continue;
+      }
+      if (hook.type !== "command") continue;
+      for (const command of [hook.command, hook.commandWindows].filter((value) => value !== undefined)) {
+        const refs = [...command.matchAll(new RegExp(`\\$\\{${root}\\}/([^"\\s]+)`, "g"))].map((m) => m[1]);
         if (!refs.length) {
-          faults.push(`${event}: command does not reference \${CLAUDE_PLUGIN_ROOT}: ${hook.command}`);
+          faults.push(`${event}: command does not reference \${${root}}: ${command}`);
           continue;
         }
-        const executed = hook.command.replace(/^"/, "").startsWith("${CLAUDE_PLUGIN_ROOT}/");
+        const executed = command.replace(/^"/, "").startsWith(`\${${root}}/`);
         refs.forEach((rel, i) => {
           const st = statOf(rel);
           if (!st) faults.push(`${event}: ${rel} does not exist`);
@@ -770,7 +891,7 @@ export function plan(root, models) {
   for (const runtime of PROMPT_RUNTIMES) {
     for (const skill of slashCommands(read(COMMANDS_DOC), publicSkills(join(root, SKILLS)))) {
       const preamble = (leads.get(`${SKILLS}/${skill.name}/SKILL.md`) ?? []).includes(runtime.preamble);
-      put(`${runtime.prompts}/${skill.name}.md`, promptStub(skill, { preamble }));
+      put(`${runtime.prompts}/${skill.name}.md`, promptStub(skill, runtime, { preamble }));
     }
   }
   const agents = effortAgents(models.efforts, read(`${PLUGIN}/agents/poteto-agent.md`));
@@ -796,36 +917,7 @@ export function plan(root, models) {
     }
     put(path, read(source));
   }
-  const hook = (name) => read(`${PLUGIN}/hooks/${name}`);
-  for (const [out, extra, markers] of [
-    ["session-start-context.json", "session-start-copilot-sheet.md", 1],
-    ["session-start-context-nosheet.json", "session-start-copilot-nosheet.md", 0],
-  ]) {
-    const context = copilotSessionContext(
-      hook("session-start-context.md"),
-      `${hook("session-start-copilot.md").trim()}\n\n${hook(extra)}`,
-    );
-    if (context.split(SAVED_CHOICES_MARKER).length - 1 !== markers) {
-      throw new Error(`hooks/${out} must contain ${SAVED_CHOICES_MARKER} exactly ${markers} time(s)`);
-    }
-    put(`${PLUGIN}/hooks/${out}`, context);
-  }
   return { files, ownedDirs: OWNED_DIRS };
-}
-
-// Copilot parses a sessionStart hook's stdout as one JSON object, so the
-// hook prints a stamped JSON copy of the mandate: the Claude/Codex text with
-// the Copilot addendum inside the closing tag. The hook swaps this marker for
-// the sheet's role lines at session start; nothing else is escaped at runtime.
-export const SAVED_CHOICES_MARKER = "@PSTACK_SAVED_MODEL_CHOICES@";
-
-export function copilotSessionContext(mandate, addendum) {
-  const close = "</EXTREMELY_IMPORTANT>";
-  if (mandate.split(close).length !== 2) {
-    throw new Error(`hooks/session-start-context.md must contain exactly one ${close}`);
-  }
-  const body = mandate.replace(close, `\n${addendum.trim()}\n${close}`);
-  return JSON.stringify({ additionalContext: body }, null, 2) + "\n";
 }
 
 function lstatNoSymlinks(root, path) {
@@ -887,18 +979,21 @@ export function problems(root, models) {
   };
   const pluginRoot = join(root, PLUGIN);
   const skillsDir = join(root, SKILLS);
-  const codexManifestFile = `${PLUGIN}/.codex-plugin/plugin.json`;
-  const codexManifest = attempt(() => {
-    const text = readFileSync(join(root, codexManifestFile), "utf8");
-    let manifest;
-    try {
-      manifest = JSON.parse(text);
-    } catch (err) {
-      throw new Error(`${codexManifestFile}: ${err.message}`);
-    }
-    if (typeof manifest !== "object" || !manifest) throw new Error(`${codexManifestFile}: not a JSON object`);
-    return manifest;
-  });
+  const read = (rel) => readFileSync(join(root, rel), "utf8");
+  const pathExists = (rel) => existsSync(join(root, rel));
+  const packages = RUNTIMES.map((runtime) =>
+    attempt(() => {
+      const text = read(runtime.manifest);
+      let manifest;
+      try {
+        manifest = JSON.parse(text);
+      } catch (err) {
+        throw new Error(`${runtime.manifest}: ${err.message}`);
+      }
+      if (typeof manifest !== "object" || !manifest) throw new Error(`${runtime.manifest}: not a JSON object`);
+      return { runtime, manifest, text };
+    }),
+  ).filter(Boolean);
   models ??= attempt(() => loadModels(root));
   const statOf = (rel) => (existsSync(join(pluginRoot, rel)) ? statSync(join(pluginRoot, rel)) : null);
   if (models) {
@@ -934,23 +1029,17 @@ export function problems(root, models) {
   });
   attempt(() => validateSkillsTree(skillsDir));
   attempt(() => validateProsePaths(skillsDir));
-  if (codexManifest) {
-    attempt(() =>
-      validateCodexMarketplace(readFileSync(join(root, ".agents/plugins/marketplace.json"), "utf8"), {
-        expectedName: codexManifest.name,
-        pathExists: (p) => existsSync(join(root, p)),
-      }),
-    );
-  }
-  attempt(() =>
-    validatePiPackage(readFileSync(join(root, "package.json"), "utf8"), {
-      pathExists: (p) => existsSync(join(root, p)),
-    }),
-  );
+  for (const packaged of packages) attempt(() => packaged.runtime.validate({ ...packaged, read, pathExists }));
   attempt(() => validatePluginLayout(pluginRoot));
   attempt(() => validateAgentFrontmatter(pluginRoot));
-  for (const file of ["hooks/hooks.json", ...(codexManifest ? [codexManifest.hooks] : [])]) {
-    attempt(() => validateHooks(readFileSync(join(pluginRoot, file), "utf8"), { statOf, file }));
+  const hooksFiles = [
+    { file: "hooks/hooks.json" },
+    ...packages.flatMap(({ runtime, manifest }) =>
+      (runtime.hooks?.(manifest) ?? []).map((file) => ({ file, root: runtime.pluginRootVar })),
+    ),
+  ];
+  for (const { file, root } of hooksFiles) {
+    attempt(() => validateHooks(readFileSync(join(pluginRoot, file), "utf8"), { statOf, file, root }));
   }
   return failures;
 }
@@ -978,7 +1067,7 @@ function main() {
   if (pending?.length === 0) console.log(`ok: ${Object.keys(intended.files).length} generated files current`);
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   if (failures.length) process.exit(1);
-  console.log("ok: skill links, prose paths, model slugs, marketplace, Pi package, plugin layout, agent frontmatter, and hooks pass their checks");
+  console.log("ok: skill links, prose paths, model slugs, runtime packaging, plugin layout, agent frontmatter, and hooks pass their checks");
 }
 
 // Guarded so importing the generator's validation and rendering functions does
